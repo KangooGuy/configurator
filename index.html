@@ -2258,14 +2258,52 @@ self.addEventListener('fetch', e => {
   }
 })();
 
-/* ─── PWA: Install banner for iOS ───────────────────────────────── */
+/* ─── PWA: Install banner — iOS & Android ───────────────────────── */
 (function() {
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.navigator.standalone === true;
-  const dismissed = sessionStorage.getItem('truvami-install-dismissed');
+  const isIOS              = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid          = /android/i.test(navigator.userAgent);
+  const isStandaloneIOS    = window.navigator.standalone === true;
+  const isStandaloneAndroid= window.matchMedia('(display-mode: standalone)').matches;
+  const isStandalone       = isStandaloneIOS || isStandaloneAndroid;
+  const dismissed          = sessionStorage.getItem('truvami-install-dismissed');
 
+  /* Android: capture the native Chrome install prompt */
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (dismissed || isStandalone) return;
+
+    const banner = document.getElementById('install-banner');
+    if (!banner) return;
+
+    // Swap iOS instructions for Android single-tap
+    const steps = banner.querySelector('.ib-steps');
+    if (steps) steps.innerHTML = 'Tap <strong>Install</strong> below &mdash; no App Store needed.';
+
+    // Add a real Install button if not already there
+    if (!banner.querySelector('.ib-install-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'ib-install-btn';
+      btn.style.cssText = 'background:var(--accent);color:#000;border-radius:8px;padding:8px 14px;font-weight:700;font-size:0.82rem;border:none;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;';
+      btn.textContent = 'Install';
+      btn.addEventListener('click', async () => {
+        banner.classList.remove('show');
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          if (outcome === 'accepted') sessionStorage.setItem('truvami-install-dismissed','1');
+        }
+      });
+      banner.querySelector('.ib-close').before(btn);
+    }
+
+    setTimeout(() => banner.classList.add('show'), 2000);
+  });
+
+  /* iOS: show manual instructions */
   if (isIOS && !isStandalone && !dismissed) {
-    // Show after 3 seconds
     setTimeout(() => {
       const banner = document.getElementById('install-banner');
       if (banner) banner.classList.add('show');
