@@ -796,6 +796,16 @@
             <div class="result-box" id="eb_batcap_display" style="padding:8px 11px;min-height:34px;font-size:0.82rem;line-height:1.4">—</div>
           </div>
         </div>
+        <div class="frow">
+          <div class="field">
+            <label for="eb_design_margin">Safety design margin (%)</label>
+            <input type="number" id="eb_design_margin" value="20" min="0" max="200" step="1">
+          </div>
+          <div class="field">
+            <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Net consumption with margin</label>
+            <div class="result-box" id="eb_margin_display" style="padding:8px 11px;min-height:34px;font-size:0.82rem;line-height:1.4;color:var(--warn)">—</div>
+          </div>
+        </div>
       </div>
 
       <!-- LoRa Configuration -->
@@ -2164,6 +2174,7 @@ function ebGetConfig() {
     opv_area_cm2:      fv('opv_area',    35),
     opv_lux:           iv('opv_lux',    500),
     opv_hours:         fv('opv_hours',    8),
+    design_margin:     fv('design_margin', 20) / 100,  // fraction e.g. 0.20
   };
 }
 
@@ -2319,26 +2330,33 @@ function ebCalc() {
   // ── Totals ──
   const totalOut_J_day = selfDischarge_J_day + idle_J_day + lora_J_day
                        + gnss_J_day + wifi_J_day + ble_J_day + lte_J_day;
-  const netOut_J_day   = totalOut_J_day - harvest_J_day;
 
+  // ── Safety design margin (applied to consumption, not harvest) ──
+  const margin        = Math.max(0, c.design_margin);
+  const totalOut_margined = totalOut_J_day * (1 + margin);
+  const netOut_J_day      = totalOut_margined - harvest_J_day;
+
+  // ── Lifetime (with margin applied) ──
   let life_days, infinite = false;
   if (netOut_J_day <= 0) { infinite = true; life_days = Infinity; }
   else { life_days = bat_J / netOut_J_day; }
 
+  // Nominal lifetime (no margin, for display comparison)
+  const netOut_nominal   = totalOut_J_day - harvest_J_day;
+  const life_days_nominal = netOut_nominal <= 0 ? Infinity : bat_J / netOut_nominal;
+
   // ── Lifetime display ──
-  let lifeStr;
-  if (infinite) { lifeStr = '\u221e (self-sustaining)'; }
-  else if (life_days > 3650) { lifeStr = '> 10 years'; }
-  else {
-    const yr = Math.floor(life_days / 365.25);
-    const mo = Math.floor((life_days % 365.25) / 30.44);
-    const dy = Math.floor(life_days % 30.44);
-    lifeStr = (yr ? yr+' yr ' : '') + (mo ? mo+' mo ' : '') + dy + ' d';
-    lifeStr = lifeStr.trim() || '<1 day';
-  }
+  const fmtLife = d => {
+    if (!isFinite(d)) return '\u221e';
+    if (d > 3650)     return '> 10 yr';
+    const yr = Math.floor(d / 365.25);
+    const mo = Math.floor((d % 365.25) / 30.44);
+    const dy = Math.floor(d % 30.44);
+    return ((yr ? yr+' yr ' : '') + (mo ? mo+' mo ' : '') + dy + ' d').trim() || '<1 d';
+  };
   const lifeEl = document.getElementById('eb_result_life');
   if (lifeEl) {
-    lifeEl.textContent = lifeStr;
+    lifeEl.textContent = fmtLife(life_days);
     lifeEl.style.color = infinite ? 'var(--accent)' : life_days < 30 ? 'var(--danger)' : life_days < 180 ? 'var(--warn)' : 'var(--accent)';
   }
   const harvestEl = document.getElementById('eb_result_harvest');
@@ -2347,11 +2365,23 @@ function ebCalc() {
     harvestEl.style.color = harvest_J_day > 0 ? 'var(--accent)' : 'var(--muted)';
   }
   const totalEl = document.getElementById('eb_result_total');
-  if (totalEl) totalEl.textContent = 'Total OUT: '+fmtJ(totalOut_J_day)+'/day   NET: '+fmtJ(Math.max(0,netOut_J_day))+'/day';
+  if (totalEl) totalEl.textContent =
+    'Base OUT: '+fmtJ(totalOut_J_day)+'/day'
+    +(margin > 0 ? '  +'+Math.round(margin*100)+'% margin → '+fmtJ(totalOut_margined)+'/day' : '')
+    +'  NET: '+fmtJ(Math.max(0,netOut_J_day))+'/day';
   const batEl = document.getElementById('eb_result_batcap');
-  if (batEl) batEl.textContent = 'Battery: '+fmtJ(bat_J)+' ('+c.bat_mAh+' mAh @ '+V+' V)';
+  if (batEl) batEl.textContent =
+    'Battery: '+fmtJ(bat_J)+' ('+c.bat_mAh+' mAh @ '+V+' V)'
+    +(margin > 0 && isFinite(life_days_nominal) ? '  ·  Nominal (no margin): '+fmtLife(life_days_nominal) : '');
   const batDisp = document.getElementById('eb_batcap_display');
   if (batDisp) batDisp.textContent = fmtJ(bat_J);
+  const marginDisp = document.getElementById('eb_margin_display');
+  if (marginDisp) {
+    marginDisp.textContent = margin > 0
+      ? fmtJ(totalOut_margined)+'/day  (×'+(1+margin).toFixed(2)+')'
+      : fmtJ(totalOut_J_day)+'/day  (no margin)';
+    marginDisp.style.color = margin > 0 ? 'var(--warn)' : 'var(--muted)';
+  }
 
   // ── Merged breakdown table (Per-Component Detail + Per-Event Energies + Events/day) ──
   const energyComponents = [
@@ -2626,7 +2656,7 @@ function ebOnDeviceChange() {
 
 // Wire up all inputs
 function ebInit() {
-  ['device','chem','bat_mAh','sf','batch_size','p1','p2','p3','indoor_pct',
+  ['device','chem','bat_mAh','design_margin','sf','batch_size','p1','p2','p3','indoor_pct',
    'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
    'wifi_en','gnss_en','ble_en',
    'ev_idle_uA','ev_gnss_a_mA','ev_gnss_a_s','ev_gnss_auto_mA','ev_gnss_auto_s',
