@@ -838,8 +838,24 @@
             </div>
           </div>
         </div>
+          <div class="field">
+            <label for="eb_batch_size">Batch size <span style="font-weight:400;font-size:0.7rem;color:var(--muted)">(1 confirmed every N messages)</span></label>
+            <input type="number" id="eb_batch_size" value="1" min="1" max="100" step="1">
+          </div>
+        </div>
+        <div class="frow" style="margin-top:10px">
+          <div class="field">
+            <label for="eb_batch_size">Batch size (1 confirmed per N msgs)</label>
+            <input type="number" id="eb_batch_size" value="1" min="1" max="100" step="1">
+          </div>
+          <div class="field">
+            <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Confirmed / Unconfirmed split</label>
+            <div class="result-box" id="eb_stat_batch" style="padding:8px 11px;min-height:34px;font-size:0.78rem">—</div>
+          </div>
+        </div>
         <div class="hint-box" style="margin-top:8px;font-size:0.76rem">
           <strong>E[tx] = 1 + (1−p₁) + (1−p₁)(1−p₂)</strong> &nbsp;·&nbsp; defaults → E[tx] = 1.625<br>
+          <strong>Confirmed</strong> (every N): TX + RX1 + RX2 + S&amp;F retries &nbsp;·&nbsp; <strong>Unconfirmed</strong> (others): TX only, no DL, no retry<br>
           Airtime from Semtech AN1200.13, EU868, BW=125 kHz, CR=4/5, 51+13 bytes, I<sub>TX</sub>=35 mA, I<sub>RX</sub>=10 mA
         </div>
       </div>
@@ -851,7 +867,7 @@
         <div class="frow" style="margin-top:10px">
           <div class="field">
             <label for="eb_moving_interval_s">Moving interval (s)</label>
-            <input type="number" id="eb_moving_interval_s" value="300" min="60" max="86400" step="60">
+            <input type="number" id="eb_moving_interval_s" value="300" min="10" max="86400" step="10">
           </div>
           <div class="field">
             <label for="eb_steady_interval_s">Steady interval (s)</label>
@@ -885,6 +901,9 @@
         <div class="checks" style="margin-top:10px">
           <label class="check"><input type="checkbox" id="eb_gnss_en" checked> GNSS enabled</label>
           <label class="check"><input type="checkbox" id="eb_wifi_en" checked> WiFi scan (indoor)</label>
+          <div id="eb_ble_en_wrap" style="display:none">
+            <label class="check"><input type="checkbox" id="eb_ble_en"> BLE scan (outdoor)</label>
+          </div>
         </div>
       </div>
 
@@ -912,8 +931,8 @@
               </td>
               <td style="padding:7px 8px;text-align:right;color:var(--muted);font-family:var(--mono);font-size:0.8rem">86 400 s (fixed)</td>
             </tr>
-            <tr>
-              <td style="padding:7px 8px;color:var(--muted)">GNSS fix — assisted (outdoor)</td>
+            <tr id="eb_ev_gnss_a_row">
+              <td style="padding:7px 8px;color:var(--muted)">GNSS fix — assisted outdoor <span style="font-size:0.7rem;background:rgba(0,221,179,0.1);color:var(--accent);border:1px solid rgba(0,221,179,0.25);border-radius:4px;padding:1px 5px">≈ 0.1 J/fix</span></td>
               <td style="padding:7px 8px">
                 <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
                   <input type="number" id="eb_ev_gnss_a_mA" value="8" min="0.1" max="500" step="0.1"
@@ -929,8 +948,8 @@
                 </div>
               </td>
             </tr>
-            <tr>
-              <td style="padding:7px 8px;color:var(--muted)">GNSS fix — autonomous (indoor)</td>
+            <tr id="eb_ev_gnss_auto_row">
+              <td style="padding:7px 8px;color:var(--muted)">GNSS fix — autonomous outdoor</td>
               <td style="padding:7px 8px">
                 <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
                   <input type="number" id="eb_ev_gnss_auto_mA" value="15" min="0.1" max="500" step="0.1"
@@ -980,10 +999,30 @@
                 </div>
               </td>
             </tr>
+            <tr id="eb_ev_ble_row" style="display:none">
+              <td style="padding:7px 8px;color:var(--muted)">BLE scan <span style="font-size:0.7rem;background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3);border-radius:4px;padding:1px 5px">Tag S only</span></td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_ble_mA" value="24" min="0.1" max="500" step="0.1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">mA</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_ble_s" value="3.5" min="0.1" max="60" step="0.1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">s</span>
+                </div>
+              </td>
+            </tr>
           </tbody>
         </table>
         <div id="eb_gnss_continuous_note" style="display:none;margin-top:8px" class="hint-box">
-          <span style="color:var(--warn)">⚡ Continuous GNSS mode active</span> — moving interval &lt; 5 min: GNSS stays ON for the full movement duration instead of per-fix acquisition.
+          <span style="color:var(--warn)">⚡ Continuous GNSS mode active</span> — moving interval &lt; 5 min: GNSS stays ON for the full movement duration.
+        </div>
+        <div id="eb_gnss_overlap_note" style="display:none;margin-top:8px" class="hint-box">
+          <span style="color:#f5a623">⚠ Fast TX mode</span> — moving interval &lt; GNSS acquisition time: LoRa messages are sent faster than fixes complete. LoRa count &gt; position fixes.
         </div>
       </div>
 
@@ -1058,6 +1097,15 @@
         </div>
       </div>
 
+      <!-- Count chart -->
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:12px">
+        <h2 style="align-self:flex-start">Events / Day — Count</h2>
+        <div style="display:flex;gap:16px;align-items:center;width:100%">
+          <div id="eb_count_chart" style="flex-shrink:0"></div>
+          <div id="eb_count_legend" style="flex:1;display:grid;gap:6px"></div>
+        </div>
+      </div>
+
       <!-- Breakdown table -->
       <div class="card">
         <h2>Per-Component Detail</h2>
@@ -1095,6 +1143,10 @@
                 <td id="eb_stat_wifi_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
                 <td id="eb_stat_wifi_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
                 <td id="eb_stat_wifi"    style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
+            <tr id="eb_stat_ble_row" style="display:none"><td>BLE scan (outdoor, Tag S)</td>
+                <td id="eb_stat_ble_i"   style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_ble_t"   style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_ble"     style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:#ff6b6b">—</td></tr>
             <tr><td>Position fixes / day (moving + steady)</td>
                 <td colspan="2" id="eb_stat_locday" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--text)">—</td>
                 <td id="eb_stat_hbday" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td></tr>
@@ -1966,6 +2018,19 @@ const LORA_CHARGE_UAS = {
 };
 const LORA_TX_MA = 35;   // mA – SX1262 TX current
 
+// Unconfirmed message: TX only (no DL listen). I_TX=35 mA, µA·s
+const LORA_CONFIRMED_EXTRA_UAS = 20000; // 10000 µA × 2 s
+
+// TX-only charge (no RX windows) in µA·s — used for unconfirmed uplinks
+const LORA_TX_ONLY_UAS = {
+   7:   4130.56,   // 35000 µA × 0.118016 s
+   8:   7544.32,
+   9:  13655.04,
+  10:  24442.88,
+  11:  54620.16,
+  12:  97771.52,
+};
+
 // OPV harvest table (J per day) – raw OPV output before PMIC losses
 // Source: Energy_budget_ Sheet2, OPV area = 35 cm², excludes storage losses
 // Format: lux → [J/day @4h, J/day @8h, J/day @12h]
@@ -2100,373 +2165,431 @@ const CHEMISTRIES = {
 function eb(id) { return document.getElementById('eb_' + id); }
 
 function ebGetConfig() {
+  const g = id => document.getElementById('eb_' + id);
+  const fv = (id, def) => parseFloat(g(id) ? g(id).value : def) || def;
+  const iv = (id, def) => parseInt(g(id) ? g(id).value : def)   || def;
+  const bv = id => g(id) ? g(id).checked : false;
   return {
-    device:          eb('device').value,
-    chem:            eb('chem').value,
-    bat_mAh:         parseFloat(eb('bat_mAh').value)  || 0,
-    sf:              parseInt(eb('sf').value),
-    p1:              parseFloat(eb('p1').value) / 100,   // P(success) attempt 1
-    p2:              parseFloat(eb('p2').value) / 100,   // P(success) attempt 2
-    p3:              parseFloat(eb('p3').value) / 100,   // P(success) attempt 3
-    indoor_pct:      parseFloat(eb('indoor_pct').value) / 100,
-    moving_interval_s: parseFloat(eb('moving_interval_s').value) || 300,
-    steady_interval_s: parseFloat(eb('steady_interval_s').value) || 3600,
-    movement_h:        parseFloat(eb('movement_h').value)        || 0,
-    hb_interval_s:     parseFloat(eb('hb_interval_s').value)     || 86400,
-    wifi_enabled:    eb('wifi_en').checked,
-    gnss_enabled:    eb('gnss_en').checked,
-    // Event parameters (user-adjustable)
-    ev_idle_uA:      parseFloat(eb('ev_idle_uA').value)      || 25,
-    ev_gnss_a_mA:    parseFloat(eb('ev_gnss_a_mA').value)    || 8,
-    ev_gnss_a_s:     parseFloat(eb('ev_gnss_a_s').value)     || 40,
-    ev_gnss_auto_mA: parseFloat(eb('ev_gnss_auto_mA').value) || 15,
-    ev_gnss_auto_s:  parseFloat(eb('ev_gnss_auto_s').value)  || 150,
-    ev_wifi_mA:      parseFloat(eb('ev_wifi_mA').value)      || 12.6,
-    ev_wifi_s:       parseFloat(eb('ev_wifi_s').value)       || 3.5,
-    ev_lte_mA:       parseFloat(eb('ev_lte_mA').value)       || 150,
-    ev_lte_s:        parseFloat(eb('ev_lte_s').value)        || 120,
-    harvest_enabled: eb('harvest_en').checked,
-    opv_area_cm2:    parseFloat(eb('opv_area').value)         || 0,
-    opv_lux:         parseInt(eb('opv_lux').value, 10)        || 0,
-    opv_hours:       parseFloat(eb('opv_hours').value)        || 0,
+    device:            g('device').value,
+    chem:              g('chem').value,
+    bat_mAh:           fv('bat_mAh',  450),
+    sf:                iv('sf',        9),
+    batch_size:        Math.max(1, iv('batch_size', 1)),
+    p1:                fv('p1',  50) / 100,
+    p2:                fv('p2',  75) / 100,
+    p3:                fv('p3', 100) / 100,
+    indoor_pct:        fv('indoor_pct', 20) / 100,
+    moving_interval_s: fv('moving_interval_s', 300),
+    steady_interval_s: fv('steady_interval_s', 3600),
+    movement_h:        fv('movement_h', 3),
+    hb_interval_s:     fv('hb_interval_s', 86400),
+    wifi_enabled:      bv('wifi_en'),
+    gnss_enabled:      bv('gnss_en'),
+    ble_enabled:       bv('ble_en'),
+    // Event parameters
+    ev_idle_uA:        fv('ev_idle_uA',      25),
+    ev_gnss_a_mA:      fv('ev_gnss_a_mA',     8),
+    ev_gnss_a_s:       fv('ev_gnss_a_s',    3.5),
+    ev_gnss_auto_mA:   fv('ev_gnss_auto_mA', 15),
+    ev_gnss_auto_s:    fv('ev_gnss_auto_s', 150),
+    ev_wifi_mA:        fv('ev_wifi_mA',    12.6),
+    ev_wifi_s:         fv('ev_wifi_s',      3.5),
+    ev_ble_mA:         fv('ev_ble_mA',     24),
+    ev_ble_s:          fv('ev_ble_s',      3.5),
+    ev_lte_mA:         fv('ev_lte_mA',    150),
+    ev_lte_s:          fv('ev_lte_s',     120),
+    harvest_enabled:   bv('harvest_en'),
+    opv_area_cm2:      fv('opv_area',    35),
+    opv_lux:           iv('opv_lux',    500),
+    opv_hours:         fv('opv_hours',    8),
   };
 }
 
 function ebCalc() {
-  const c = ebGetConfig();
+  const c   = ebGetConfig();
   const dev = DEVICES[c.device];
   if (!dev) return;
   const chem = CHEMISTRIES[c.chem] || CHEMISTRIES.lipo;
+  const V    = dev.V;
+  const setCell = (id, v) => { const el = document.getElementById('eb_' + id); if (el) el.textContent = v; };
+  const fmtJ = j => j < 1e-3 ? (j*1e6).toFixed(1)+' \u00b5J' : j < 1 ? (j*1e3).toFixed(2)+' mJ' : j.toFixed(3)+' J';
 
-  // Use the device's operating voltage (not chemistry nominal)
-  const V = dev.V;
+  // ── Battery ──
+  const bat_J = c.bat_mAh * V * 3.6;
 
-  // ── Battery energy (J) ──
-  // E = capacity_mAh × V × 3.6  (mAh → As: ×3.6s/h)
-  const bat_J = c.bat_mAh * V * 3.6;  // J
-
-  // ── Self-discharge (J/day) ──
+  // ── Self-discharge ──
   const selfDischarge_J_day = bat_J * (chem.self_discharge_pct_month / 100) / 30.44;
 
-  // ── Idle energy (J/day) ──
-  const idle_J_day = c.ev_idle_uA * 1e-6 * V * 86400;  // J/day
+  // ── Idle ──
+  const idle_J_day = c.ev_idle_uA * 1e-6 * V * 86400;
 
-  // ── LoRa energy per message (J) ──
-  // Account for packet error rate: avg tx = 1/(1-PER) per message
-  const loraCharge_uAs = LORA_CHARGE_UAS[c.sf] || LORA_CHARGE_UAS[9];
-  const loraToa_s       = LORA_TOA_S[c.sf]      || LORA_TOA_S[9];
-  const lora_J_attempt  = loraCharge_uAs * 1e-6 * V;   // J for a single TX+RX attempt
+  // ── Movement timing ──
+  const movement_s = Math.min(c.movement_h, 24) * 3600;
+  const steady_s   = 86400 - movement_s;
 
-  // ── Store-and-forward retransmission model (LR1110, max 3 attempts) ──
-  // E[tx] = 1 + P(fail1) + P(fail1)×P(fail2)
+  // ── Continuous GNSS mode (Tag S / Cellular, moving_interval < 5 min) ──
+  const continuous = !!(dev.gnss_continuous && c.moving_interval_s < 300);
+  const contNote = document.getElementById('eb_gnss_continuous_note');
+  if (contNote) contNote.style.display = continuous ? '' : 'none';
+
+  // ── GNSS fix duration for this device type ──
+  const isAssisted  = dev.gnss_type === 'assisted';
+  const gnss_fix_s  = isAssisted ? c.ev_gnss_a_s : c.ev_gnss_auto_s;
+  const gnss_fix_mA = isAssisted ? c.ev_gnss_a_mA : c.ev_gnss_auto_mA;
+
+  // ── When moving_interval < gnss_fix_time: LoRa sends faster than GNSS acquires ──
+  const fastTx = !continuous && c.moving_interval_s < gnss_fix_s;
+  const overlapNote = document.getElementById('eb_gnss_overlap_note');
+  if (overlapNote) overlapNote.style.display = fastTx ? '' : 'none';
+
+  // LoRa message rate (one per moving_interval regardless of GNSS readiness)
+  const lora_msgs_moving = movement_s / Math.max(1, c.moving_interval_s);
+  const lora_msgs_steady = steady_s   / Math.max(60, c.steady_interval_s);
+
+  // GNSS fix rate (capped by acquisition time when fastTx)
+  const gnss_fixes_moving = continuous ? 0
+    : movement_s / Math.max(c.moving_interval_s, gnss_fix_s);
+  const gnss_fixes_steady = steady_s / Math.max(c.steady_interval_s, gnss_fix_s);
+  const gnss_fixes_day    = gnss_fixes_moving + gnss_fixes_steady;
+
+  const hb_per_day = 86400 / Math.max(3600, c.hb_interval_s);
+
+  // ── LoRa energy ──
+  const gnss_ul         = dev.gnss_uplinks || 1;
+  const loraCharge_uAs  = LORA_CHARGE_UAS[c.sf]     || LORA_CHARGE_UAS[9];
+  const loraTxOnly_uAs  = LORA_TX_ONLY_UAS[c.sf]    || LORA_TX_ONLY_UAS[9];
+  const loraToa_s       = LORA_TOA_S[c.sf]           || LORA_TOA_S[9];
+  const lora_J_attempt  = loraCharge_uAs * 1e-6 * V;
+
+  // S&F retry model
   const p1  = Math.min(1, Math.max(0, c.p1));
   const p2  = Math.min(1, Math.max(0, c.p2));
-  const q1  = 1 - p1;                  // P(fail attempt 1)
-  const q2  = 1 - p2;                  // P(fail attempt 2 | reached)
-  const etx = 1 + q1 + q1 * q2;       // expected TX per logical message
-  const lora_J_msg = lora_J_attempt * etx;
+  const q1  = 1 - p1, q2 = 1 - p2;
+  const etx = 1 + q1 + q1 * q2;
 
-  // ── Location fixes per day ──
-  // Moving period: movement_h hours at moving_interval_s
-  // Steady period: (24 - movement_h) hours at steady_interval_s
-  const movement_s  = Math.min(c.movement_h, 24) * 3600;
-  const steady_s    = (24 * 3600) - movement_s;
-  const loc_moving  = movement_s / Math.max(60, c.moving_interval_s);
-  const loc_steady  = steady_s   / Math.max(60, c.steady_interval_s);
-  const loc_per_day = loc_moving + loc_steady;
-  const hb_per_day  = 86400 / Math.max(3600, c.hb_interval_s);
+  // Batch model: 1 confirmed per batch_size msgs, rest unconfirmed
+  // Confirmed  = TX+RX1+RX2 (full window) x E[tx] + extra ACK windows
+  // Unconfirmed = TX only, single attempt
+  const batch = c.batch_size;
+  const total_loc_msgs_day = lora_msgs_moving * gnss_ul + lora_msgs_steady * gnss_ul;
+  const total_msgs_day     = total_loc_msgs_day + hb_per_day;
+  const n_confirmed   = total_msgs_day / batch;
+  const n_unconfirmed = total_msgs_day * (batch - 1) / batch;
 
-  // Location events: gnss_uplinks UL each (2 for server-side solving, 1 for on-chip)
-  const gnss_ul = dev.gnss_uplinks || 1;
-  const lora_J_day = (loc_per_day * gnss_ul + hb_per_day) * lora_J_msg;
+  const lora_J_conf    = lora_J_attempt * etx
+                       + LORA_CONFIRMED_EXTRA_UAS * 1e-6 * V;  // extra DL windows
+  const lora_J_unconf  = loraTxOnly_uAs * 1e-6 * V;             // TX only
+  const lora_J_day     = n_confirmed * lora_J_conf + n_unconfirmed * lora_J_unconf;
+  const lora_J_avg_msg = total_msgs_day > 0 ? lora_J_day / total_msgs_day : lora_J_conf;
 
-  // ── Per-event energies (using user-adjustable parameters) ──
-  const E_gnss_a    = c.ev_gnss_a_mA    * 1e-3 * V * c.ev_gnss_a_s;    // J per assisted fix
-  const E_gnss_auto = c.ev_gnss_auto_mA * 1e-3 * V * c.ev_gnss_auto_s; // J per autonomous fix
-  const E_wifi_fix  = (dev.wifi) ? c.ev_wifi_mA * 1e-3 * V * c.ev_wifi_s : 0; // J per WiFi scan
+  // ── Per-fix energies ──
+  const E_gnss_fix  = dev.gnss_E_J || (gnss_fix_mA * 1e-3 * V * gnss_fix_s);
+  const E_wifi_fix  = dev.wifi ? c.ev_wifi_mA * 1e-3 * V * c.ev_wifi_s : 0;
+  const E_ble_fix   = dev.has_ble ? c.ev_ble_mA * 1e-3 * V * c.ev_ble_s : 0;
 
   const outdoor = 1 - c.indoor_pct;
   const indoor  = c.indoor_pct;
 
-  // Continuous GNSS mode: GNSS stays ON when moving_interval < 5 min (300 s)
-  const continuous = dev.gnss_continuous && c.moving_interval_s < 300;
-
-  // Show/hide continuous GNSS banner
-  const contNote = document.getElementById('eb_gnss_continuous_note');
-  if (contNote) contNote.style.display = continuous ? '' : 'none';
-
+  // ── GNSS energy ──
   let gnss_J_day = 0;
-  let wifi_J_day = 0;
-
+  let gnss_fixes_counted = gnss_fixes_day; // for count chart
   if (c.gnss_enabled) {
     if (continuous) {
-      // GNSS chipset stays ON for the entire movement period
-      gnss_J_day = c.ev_gnss_a_mA * 1e-3 * V * movement_s;   // continuous draw during movement
-      // Steady period: normal per-fix model
-      if (c.wifi_enabled && dev.wifi) {
-        gnss_J_day += loc_steady * outdoor * E_gnss_a;
-        wifi_J_day  = loc_steady * indoor  * E_wifi_fix;
-      } else {
-        gnss_J_day += loc_steady * (outdoor * E_gnss_a + indoor * E_gnss_auto);
-      }
+      gnss_J_day = gnss_fix_mA * 1e-3 * V * movement_s;     // ON for full movement
+      // Steady period: per-fix
+      gnss_J_day += gnss_fixes_steady * outdoor * E_gnss_fix;
+      gnss_fixes_counted = 1 + gnss_fixes_steady;           // approximate
     } else {
-      // Normal per-fix model for all periods
-      if (c.wifi_enabled && dev.wifi) {
-        gnss_J_day = loc_per_day * outdoor * E_gnss_a;
-        wifi_J_day = loc_per_day * indoor  * E_wifi_fix;
-      } else {
-        gnss_J_day = loc_per_day * (outdoor * E_gnss_a + indoor * E_gnss_auto);
-      }
+      gnss_J_day = gnss_fixes_day * outdoor * E_gnss_fix;
     }
-  } else if (c.wifi_enabled && dev.wifi) {
-    // GNSS disabled — WiFi only
-    wifi_J_day = loc_per_day * E_wifi_fix;
   }
 
-  // ── LTE communication energy (cellular tracker only, 1× per day) ──
+  // ── WiFi energy (indoor) ──
+  let wifi_J_day = 0;
+  let wifi_scans_day = 0;
+  if (c.wifi_enabled && dev.wifi && c.gnss_enabled) {
+    wifi_scans_day = gnss_fixes_day * indoor;
+    wifi_J_day     = wifi_scans_day * E_wifi_fix;
+    // Replace indoor GNSS with WiFi
+    if (c.gnss_enabled) gnss_J_day = gnss_fixes_day * outdoor * E_gnss_fix;
+  } else if (c.wifi_enabled && dev.wifi && !c.gnss_enabled) {
+    wifi_scans_day = gnss_fixes_day;
+    wifi_J_day     = wifi_scans_day * E_wifi_fix;
+  }
+
+  // ── BLE energy (Tag S only, outdoor) ──
+  let ble_J_day = 0;
+  let ble_scans_day = 0;
+  if (c.ble_enabled && dev.has_ble) {
+    ble_scans_day = gnss_fixes_day * outdoor;   // BLE used outdoors alongside GNSS
+    ble_J_day     = ble_scans_day * E_ble_fix;
+  }
+
+  // ── LTE energy ──
   let lte_J_day = 0;
-  if (dev.has_lte) {
-    lte_J_day = c.ev_lte_mA * 1e-3 * V * c.ev_lte_s;  // 1 event per day
-  }
+  if (dev.has_lte) lte_J_day = c.ev_lte_mA * 1e-3 * V * c.ev_lte_s;
 
-  // ── Harvesting energy (J/day) ──
+  // ── Harvesting ──
   let harvest_J_day = 0;
   if (c.harvest_enabled && dev.hasHarvest) {
     const area = c.opv_area_cm2 || dev.opvArea_cm2 || 35;
-    const rawJ_35cm2 = interpolateOPV(c.opv_lux, c.opv_hours);
-    const rawJ = rawJ_35cm2 * (area / 35);
-    harvest_J_day = rawJ * OPV_PMIC_EFF;
+    harvest_J_day = interpolateOPV(c.opv_lux, c.opv_hours) * (area / 35) * OPV_PMIC_EFF;
   }
 
   // ── Totals ──
-  const totalOut_J_day = selfDischarge_J_day + idle_J_day + lora_J_day + gnss_J_day + wifi_J_day + lte_J_day;
+  const totalOut_J_day = selfDischarge_J_day + idle_J_day + lora_J_day
+                       + gnss_J_day + wifi_J_day + ble_J_day + lte_J_day;
   const netOut_J_day   = totalOut_J_day - harvest_J_day;
 
   let life_days, infinite = false;
-  if (netOut_J_day <= 0) {
-    infinite = true; life_days = Infinity;
-  } else {
-    life_days = bat_J / netOut_J_day;
-  }
+  if (netOut_J_day <= 0) { infinite = true; life_days = Infinity; }
+  else { life_days = bat_J / netOut_J_day; }
 
-  // ── Render results ──
-  const fmt = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '∞';
-  const fmtJ = j => j < 1e-3 ? (j*1e6).toFixed(1)+' µJ' : j < 1 ? (j*1e3).toFixed(2)+' mJ' : j.toFixed(3)+' J';
-
-  // Lifetime display
+  // ── Lifetime display ──
   let lifeStr;
-  if (infinite) {
-    lifeStr = '∞ (self-sustaining)';
-  } else if (life_days > 365*10) {
-    lifeStr = '> 10 years';
-  } else {
-    const years  = Math.floor(life_days / 365.25);
-    const months = Math.floor((life_days % 365.25) / 30.44);
-    const days   = Math.floor(life_days % 30.44);
-    lifeStr = '';
-    if (years)  lifeStr += years  + ' yr ';
-    if (months) lifeStr += months + ' mo ';
-    lifeStr += days + ' d';
+  if (infinite) { lifeStr = '\u221e (self-sustaining)'; }
+  else if (life_days > 3650) { lifeStr = '> 10 years'; }
+  else {
+    const yr = Math.floor(life_days / 365.25);
+    const mo = Math.floor((life_days % 365.25) / 30.44);
+    const dy = Math.floor(life_days % 30.44);
+    lifeStr = (yr ? yr+' yr ' : '') + (mo ? mo+' mo ' : '') + dy + ' d';
     lifeStr = lifeStr.trim() || '<1 day';
   }
+  const lifeEl = document.getElementById('eb_result_life');
+  if (lifeEl) {
+    lifeEl.textContent = lifeStr;
+    lifeEl.style.color = infinite ? 'var(--accent)' : life_days < 30 ? 'var(--danger)' : life_days < 180 ? 'var(--warn)' : 'var(--accent)';
+  }
+  const harvestEl = document.getElementById('eb_result_harvest');
+  if (harvestEl) {
+    harvestEl.textContent = harvest_J_day > 0 ? 'Harvested: '+fmtJ(harvest_J_day)+'/day' : 'No harvesting';
+    harvestEl.style.color = harvest_J_day > 0 ? 'var(--accent)' : 'var(--muted)';
+  }
+  const totalEl = document.getElementById('eb_result_total');
+  if (totalEl) totalEl.textContent = 'Total OUT: '+fmtJ(totalOut_J_day)+'/day   NET: '+fmtJ(Math.max(0,netOut_J_day))+'/day';
+  const batEl = document.getElementById('eb_result_batcap');
+  if (batEl) batEl.textContent = 'Battery: '+fmtJ(bat_J)+' ('+c.bat_mAh+' mAh @ '+V+' V)';
 
-  eb('result_life').textContent = lifeStr;
-  eb('result_life').style.color = infinite ? 'var(--accent)' : life_days < 30 ? 'var(--danger)' : life_days < 180 ? 'var(--warn)' : 'var(--accent)';
-
-  // Energy summary
-  const components = [
+  // ── Energy breakdown table + donut ──
+  const energyComponents = [
     { label: 'Self-discharge',  J: selfDischarge_J_day, color: 'var(--muted)' },
-    { label: 'Idle',            J: idle_J_day,          color: '#3a9fff' },
-    { label: 'GNSS fixes',      J: gnss_J_day,          color: '#f5a623' },
+    { label: 'Idle',            J: idle_J_day,          color: '#888' },
+    { label: 'GNSS',            J: gnss_J_day,          color: '#f5a623' },
     { label: 'WiFi scans',      J: wifi_J_day,          color: '#b36fff' },
+    { label: 'BLE scans',       J: ble_J_day,           color: '#ff6b6b' },
     { label: 'LoRa TX/RX',      J: lora_J_day,          color: 'var(--accent)' },
     { label: 'LTE comm.',       J: lte_J_day,           color: '#3a9fff' },
   ];
-
   const totalForPct = totalOut_J_day || 1;
+  const tableEl = document.getElementById('eb_result_table');
+  if (tableEl) {
+    tableEl.innerHTML = energyComponents.map(comp => {
+      const pct = (comp.J / totalForPct * 100).toFixed(1);
+      const bw  = Math.min(100, comp.J / totalForPct * 100);
+      return `<tr>
+        <td style="color:var(--muted);font-size:0.8rem;padding:6px 10px">${comp.label}</td>
+        <td style="padding:6px 10px;font-family:var(--mono);font-size:0.8rem;color:${comp.color}">${fmtJ(comp.J)}/day</td>
+        <td style="padding:6px 10px;width:120px">
+          <div style="background:var(--surface-3);border-radius:4px;height:6px;overflow:hidden">
+            <div style="width:${bw}%;height:100%;background:${comp.color};border-radius:4px"></div></div></td>
+        <td style="padding:6px 10px;font-size:0.78rem;color:var(--muted)">${pct}%</td>
+      </tr>`;
+    }).join('');
+  }
+  ebDrawDonut(energyComponents, totalOut_J_day, harvest_J_day);
 
-  eb('result_table').innerHTML = components.map(comp => {
-    const pct = (comp.J / totalForPct * 100).toFixed(1);
-    const barW = Math.min(100, comp.J / totalForPct * 100);
-    return `<tr>
-      <td style="color:var(--muted);font-size:0.8rem;padding:6px 10px">${comp.label}</td>
-      <td style="padding:6px 10px;font-family:var(--mono);font-size:0.8rem;color:${comp.color}">${fmtJ(comp.J)}/day</td>
-      <td style="padding:6px 10px;width:120px">
-        <div style="background:var(--surface-3);border-radius:4px;height:6px;overflow:hidden">
-          <div style="width:${barW}%;height:100%;background:${comp.color};border-radius:4px"></div>
-        </div>
-      </td>
-      <td style="padding:6px 10px;font-size:0.78rem;color:var(--muted)">${pct}%</td>
-    </tr>`;
-  }).join('');
+  // ── Event count chart ──
+  const countComponents = [
+    { label: 'LoRa msgs',       n: Math.round(total_msgs_day),     color: 'var(--accent)' },
+    { label: 'Confirmed msgs',  n: Math.round(n_confirmed),        color: '#00a88a' },
+    { label: 'GNSS fixes',      n: Math.round(gnss_fixes_day),     color: '#f5a623' },
+    { label: 'WiFi scans',      n: Math.round(wifi_scans_day),     color: '#b36fff' },
+    { label: 'BLE scans',       n: Math.round(ble_scans_day),      color: '#ff6b6b' },
+    { label: 'LTE events',      n: dev.has_lte ? 1 : 0,           color: '#3a9fff' },
+    { label: 'Heartbeats',      n: Math.round(hb_per_day),        color: '#888' },
+  ].filter(x => x.n > 0);
+  ebDrawCountChart(countComponents);
 
-  eb('result_harvest').textContent = harvest_J_day > 0
-    ? `Harvested: ${fmtJ(harvest_J_day)}/day`
-    : 'No harvesting';
-  eb('result_harvest').style.color = harvest_J_day > 0 ? 'var(--accent)' : 'var(--muted)';
-
-  eb('result_total').textContent = `Total OUT: ${fmtJ(totalOut_J_day)}/day   NET: ${fmtJ(Math.max(0, netOut_J_day))}/day`;
-  eb('result_batcap').textContent = `Battery: ${fmtJ(bat_J)} (${c.bat_mAh} mAh @ ${V} V)`;
-
-  // Stats
-  // ── Stats display ──
-  const setCell = (id, v) => { const el = document.getElementById('eb_' + id); if (el) el.textContent = v; };
-
+  // ── Stats table ──
   const fixDayEl = document.getElementById('eb_stat_fixday');
   if (fixDayEl) fixDayEl.textContent =
-    `${loc_per_day.toFixed(1)} fix/day  (${loc_moving.toFixed(1)} moving + ${loc_steady.toFixed(1)} steady)`;
+    gnss_fixes_day.toFixed(1)+' fix/day  ('+(gnss_fixes_moving.toFixed(1))+' moving + '+(gnss_fixes_steady.toFixed(1))+' steady)';
 
-  // Idle row
-  const idleE = c.ev_idle_uA * 1e-6 * V * 86400;
-  setCell('stat_idle_i',  (c.ev_idle_uA / 1000).toFixed(4) + ' mA');
+  setCell('stat_idle_i',  (c.ev_idle_uA/1000).toFixed(4)+' mA');
   setCell('stat_idle_t',  '86400 s');
-  setCell('stat_idle_e',  fmtJ(idleE) + '/day');
+  setCell('stat_idle_e',  fmtJ(idle_J_day)+'/day');
 
-  // LoRa row — show ToA and E[tx]
-  const toaMs = (loraToa_s * 1000).toFixed(1);
+  const toaMs = (loraToa_s*1000).toFixed(1);
   setCell('stat_lora_i', '35 mA (TX)');
   setCell('stat_lora_t', `${toaMs} ms ToA`);
-  setCell('stat_lmsg',   fmtJ(lora_J_msg) + ' · ' + gnss_ul + ' UL/fix');
+  setCell('stat_lmsg',   fmtJ(lora_J_avg_msg)+'/msg avg · '+gnss_ul+' UL/fix');
 
-  // E[tx] result box
   const etxEl = document.getElementById('eb_stat_etx');
-  if (etxEl) etxEl.textContent = etx.toFixed(3) + ' tx/msg';
+  if (etxEl) etxEl.textContent = etx.toFixed(3)+' tx/msg';
 
-  // GNSS row — use ev_ params
-  setCell('stat_gnss_i', c.ev_gnss_a_mA.toFixed(1) + ' mA' + (continuous ? ' (cont.)' : ''));
+  setCell('stat_gnss_i', gnss_fix_mA.toFixed(1)+' mA'+(continuous?' (cont.)':''));
   setCell('stat_gnss_t', continuous
-    ? ((movement_s/3600).toFixed(1) + ' h cont. + ' + c.ev_gnss_a_s + ' s/fix steady')
-    : c.ev_gnss_a_s + ' s');
-  setCell('stat_gnssfix', c.gnss_enabled
-    ? (continuous
-        ? fmtJ(gnss_J_day) + '/day (cont.)'
-        : fmtJ(E_gnss_a) + '/fix')
-    : 'disabled');
+    ? ((movement_s/3600).toFixed(1)+' h cont. + '+gnss_fix_s+' s/fix steady')
+    : gnss_fix_s+' s'+(dev.gnss_E_J?' (0.1 J/fix)':''));
+  setCell('stat_gnssfix', c.gnss_enabled ? fmtJ(E_gnss_fix)+'/fix' : 'disabled');
 
-  // WiFi row — use ev_ params
   if (dev.wifi) {
-    setCell('stat_wifi_i', c.ev_wifi_mA.toFixed(1) + ' mA');
-    setCell('stat_wifi_t', c.ev_wifi_s + ' s');
-    setCell('stat_wifi', c.wifi_enabled
-      ? fmtJ(E_wifi_fix) + '/scan'
-      : 'disabled');
+    setCell('stat_wifi_i', c.ev_wifi_mA.toFixed(1)+' mA');
+    setCell('stat_wifi_t', c.ev_wifi_s+' s');
+    setCell('stat_wifi',   c.wifi_enabled ? fmtJ(E_wifi_fix)+'/scan' : 'disabled');
   } else {
-    setCell('stat_wifi_i', 'N/A');
-    setCell('stat_wifi_t', 'N/A');
-    setCell('stat_wifi', 'no WiFi');
+    setCell('stat_wifi_i','N/A'); setCell('stat_wifi_t','N/A'); setCell('stat_wifi','no WiFi');
   }
 
-  // Fixes/day and HB/day
-  eb('stat_locday').textContent = `${loc_per_day.toFixed(1)} fix/day (${loc_moving.toFixed(1)} mvg + ${loc_steady.toFixed(1)} sted)`;
-  eb('stat_hbday').textContent  = hb_per_day.toFixed(1) + ' HB/day';
+  if (dev.has_ble) {
+    setCell('stat_ble_i', c.ev_ble_mA.toFixed(1)+' mA');
+    setCell('stat_ble_t', c.ev_ble_s+' s');
+    setCell('stat_ble',   c.ble_enabled ? fmtJ(E_ble_fix)+'/scan' : 'disabled');
+  }
+  const bleStatRow = document.getElementById('eb_stat_ble_row');
+  if (bleStatRow) bleStatRow.style.display = dev.has_ble ? '' : 'none';
 
-  // LTE row
-  const lteRow = document.getElementById('eb_ev_lte_stat_row');
-  if (lteRow) {
-    lteRow.style.display = dev.has_lte ? '' : 'none';
-    setCell('stat_lte_i', c.ev_lte_mA + ' mA');
-    setCell('stat_lte_t', c.ev_lte_s + ' s');
-    setCell('stat_lte_e', dev.has_lte ? fmtJ(lte_J_day) + '/day' : 'N/A');
+  const lteStatRow = document.getElementById('eb_ev_lte_stat_row');
+  if (lteStatRow) {
+    lteStatRow.style.display = dev.has_lte ? '' : 'none';
+    setCell('stat_lte_i', c.ev_lte_mA+' mA');
+    setCell('stat_lte_t', c.ev_lte_s+' s');
+    setCell('stat_lte_e', dev.has_lte ? fmtJ(lte_J_day)+'/day' : 'N/A');
   }
 
-  // Show/hide harvest stats
-  eb('harvest_stats').style.display = c.harvest_enabled ? '' : 'none';
-  const hStatEl = document.getElementById('eb_stat_harvest_row');
-  if (hStatEl) hStatEl.textContent = fmtJ(harvest_J_day) + '/day';
+  // Batch info
+  const batchInfoEl = document.getElementById('eb_stat_batch');
+  if (batchInfoEl) batchInfoEl.textContent =
+    n_confirmed.toFixed(1)+' confirmed + '+n_unconfirmed.toFixed(1)+' unconfirmed / day';
+
+  setCell('stat_locday', total_msgs_day.toFixed(1)+' LoRa msgs/day ('+lora_msgs_moving.toFixed(0)+' mvg + '+lora_msgs_steady.toFixed(0)+' sted + '+hb_per_day.toFixed(0)+' HB)');
+  setCell('stat_hbday',  hb_per_day.toFixed(1)+' HB/day');
+
+  const hSection = document.getElementById('eb_harvest_stats');
+  if (hSection) hSection.style.display = c.harvest_enabled ? '' : 'none';
+  const hStatEl  = document.getElementById('eb_stat_harvest_row');
+  if (hStatEl)   hStatEl.textContent  = fmtJ(harvest_J_day)+'/day';
   const hStatBox = document.getElementById('eb_stat_harvest');
-  if (hStatBox) hStatBox.textContent = fmtJ(harvest_J_day) + '/day';
-
-  // Donut chart (SVG)
-  ebDrawDonut(components, totalOut_J_day, harvest_J_day);
+  if (hStatBox)  hStatBox.textContent = fmtJ(harvest_J_day)+'/day';
 }
 
 function ebDrawDonut(components, total, harvest) {
-  const R = 70, cx = 90, cy = 90, stroke = 26;
-  const circ = 2 * Math.PI * R;
-  const totalForDraw = total || 1;
-  let offset = 0;
-  let paths = '';
+  const R=70,cx=90,cy=90,stroke=26, circ=2*Math.PI*R;
+  const tot = total || 1;
+  let offset=0, paths='';
   for (const c of components) {
-    const frac = c.J / totalForDraw;
-    const len  = frac * circ;
-    if (len < 0.5) { offset += len; continue; }
-    paths += `<circle cx="${cx}" cy="${cy}" r="${R}"
-      fill="none"
-      stroke="${c.color}"
-      stroke-width="${stroke}"
-      stroke-dasharray="${len.toFixed(2)} ${(circ - len).toFixed(2)}"
-      stroke-dashoffset="${(-offset + circ/4).toFixed(2)}"
-      opacity="0.85"/>`;
+    const len = c.J/tot*circ;
+    if (len < 0.5) { offset+=len; continue; }
+    paths += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${c.color}" stroke-width="${stroke}"
+      stroke-dasharray="${len.toFixed(2)} ${(circ-len).toFixed(2)}"
+      stroke-dashoffset="${(-offset+circ/4).toFixed(2)}" opacity="0.85"/>`;
     offset += len;
   }
-  // Harvest overlay (dashed ring outside)
-  let harvestPath = '';
-  if (harvest > 0 && total > 0) {
-    const frac = Math.min(1, harvest / total);
-    const len  = frac * circ;
-    harvestPath = `<circle cx="${cx}" cy="${cy}" r="${R + stroke/2 + 5}"
-      fill="none" stroke="var(--accent)" stroke-width="4"
-      stroke-dasharray="${len.toFixed(2)} ${(circ - len).toFixed(2)}"
-      stroke-dashoffset="${(circ/4).toFixed(2)}"
-      opacity="0.6" stroke-linecap="round"/>`;
+  let hp='';
+  if (harvest>0 && total>0) {
+    const f=Math.min(1,harvest/total), len=f*circ;
+    hp=`<circle cx="${cx}" cy="${cy}" r="${R+stroke/2+5}" fill="none" stroke="var(--accent)" stroke-width="4"
+      stroke-dasharray="${len.toFixed(2)} ${(circ-len).toFixed(2)}"
+      stroke-dashoffset="${(circ/4).toFixed(2)}" opacity="0.6" stroke-linecap="round"/>`;
   }
-  eb('donut').innerHTML = `<svg viewBox="0 0 180 180" width="180" height="180" style="display:block">
+  const el = document.getElementById('eb_donut');
+  if (el) el.innerHTML = `<svg viewBox="0 0 180 180" width="180" height="180" style="display:block">
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="${stroke}"/>
+    ${paths}${hp}
+    <text x="${cx}" y="${cy-6}" text-anchor="middle" fill="var(--text)" font-size="12" font-family="Inter,sans-serif" font-weight="700">OUT/day</text>
+  </svg>`;
+}
+
+function ebDrawCountChart(components) {
+  const el = document.getElementById('eb_count_chart');
+  if (!el || !components.length) return;
+  const total = components.reduce((s,c)=>s+c.n,0)||1;
+  const R=60,cx=75,cy=75,stroke=22,circ=2*Math.PI*R;
+  let offset=0, paths='';
+  for (const c of components) {
+    const len = c.n/total*circ;
+    if (len < 0.5) { offset+=len; continue; }
+    paths += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${c.color}" stroke-width="${stroke}"
+      stroke-dasharray="${len.toFixed(2)} ${(circ-len).toFixed(2)}"
+      stroke-dashoffset="${(-offset+circ/4).toFixed(2)}" opacity="0.85"/>`;
+    offset += len;
+  }
+  el.innerHTML = `<svg viewBox="0 0 150 150" width="150" height="150" style="display:block">
     <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="${stroke}"/>
     ${paths}
-    ${harvestPath}
-    <text x="${cx}" y="${cy - 6}" text-anchor="middle" fill="var(--text)" font-size="12" font-family="Inter,sans-serif" font-weight="700">OUT/day</text>
-    <text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="var(--accent)" font-size="11" font-family="monospace" id="eb_donut_total"></text>
+    <text x="${cx}" y="${cy-5}" text-anchor="middle" fill="var(--text)" font-size="10" font-family="Inter,sans-serif" font-weight="700">Events</text>
+    <text x="${cx}" y="${cy+9}" text-anchor="middle" fill="var(--muted)" font-size="9" font-family="Inter,sans-serif">per day</text>
   </svg>`;
+  // Legend rows
+  const leg = document.getElementById('eb_count_legend');
+  if (leg) leg.innerHTML = components.map(c =>
+    `<div style="display:flex;align-items:center;gap:6px;font-size:0.76rem;color:var(--muted)">
+      <span style="width:9px;height:9px;border-radius:50%;background:${c.color};flex-shrink:0"></span>
+      <span style="flex:1">${c.label}</span>
+      <span style="font-family:var(--mono);color:var(--text)">${c.n}</span>
+    </div>`).join('');
 }
 
 function ebOnDeviceChange() {
   const devId = eb('device').value;
   const dev   = DEVICES[devId];
   if (!dev) return;
-  eb('bat_mAh').value   = dev.defBat_mAh;
-  eb('chem').value      = dev.defChem;
-  eb('wifi_en').checked = !!dev.wifi;
+  eb('bat_mAh').value = dev.defBat_mAh;
+  eb('chem').value    = dev.defChem;
   eb('gnss_en').checked = true;
 
-  // Populate event parameter inputs from device defaults
-  eb('ev_idle_uA').value      = dev.I_idle_uA;
-  eb('ev_gnss_a_mA').value    = dev.gnssAssisted ? dev.gnssAssisted.I_mA  : 8;
-  eb('ev_gnss_a_s').value     = dev.gnssAssisted ? dev.gnssAssisted.t_s   : 40;
-  eb('ev_gnss_auto_mA').value = dev.gnssAuto     ? dev.gnssAuto.I_mA      : 15;
-  eb('ev_gnss_auto_s').value  = dev.gnssAuto     ? dev.gnssAuto.t_s       : 150;
-  if (dev.wifi) {
-    eb('ev_wifi_mA').value = dev.wifi.I_mA;
-    eb('ev_wifi_s').value  = dev.wifi.t_s;
-  }
-  if (dev.lte) {
-    eb('ev_lte_mA').value = dev.lte.I_mA;
-    eb('ev_lte_s').value  = dev.lte.t_s;
-  }
+  // Populate event param inputs
+  eb('ev_idle_uA').value    = dev.I_idle_uA;
+  const ga = dev.gnssAssisted || { I_mA: 8, t_s: 3.5 };
+  const gn = dev.gnssAuto     || { I_mA: 15, t_s: 150 };
+  eb('ev_gnss_a_mA').value    = ga.I_mA;
+  eb('ev_gnss_a_s').value     = ga.t_s;
+  eb('ev_gnss_auto_mA').value = gn.I_mA;
+  eb('ev_gnss_auto_s').value  = gn.t_s;
+  if (dev.wifi) { eb('ev_wifi_mA').value = dev.wifi.I_mA; eb('ev_wifi_s').value = dev.wifi.t_s; }
+  if (dev.ble)  { eb('ev_ble_mA').value  = dev.ble.I_mA;  eb('ev_ble_s').value  = dev.ble.t_s;  }
+  if (dev.lte)  { eb('ev_lte_mA').value  = dev.lte.I_mA;  eb('ev_lte_s').value  = dev.lte.t_s;  }
 
-  // Show/hide WiFi row
-  const wifiRow = document.getElementById('eb_ev_wifi_row');
-  if (wifiRow) wifiRow.style.display = dev.wifi ? '' : 'none';
+  // Show/hide GNSS rows based on gnss_type
+  const isAssisted = dev.gnss_type === 'assisted';
+  const gnssAssRow = document.getElementById('eb_ev_gnss_a_row');
+  const gnssAutRow = document.getElementById('eb_ev_gnss_auto_row');
+  if (gnssAssRow) gnssAssRow.style.display = isAssisted  ? '' : 'none';
+  if (gnssAutRow) gnssAutRow.style.display = !isAssisted ? '' : 'none';
 
-  // Show/hide LTE row
-  const lteRow = document.getElementById('eb_ev_lte_row');
-  if (lteRow) lteRow.style.display = dev.has_lte ? '' : 'none';
+  // Show/hide WiFi / BLE / LTE rows
+  const showHide = (id, show) => { const r=document.getElementById(id); if(r) r.style.display=show?'':'none'; };
+  showHide('eb_ev_wifi_row',    !!dev.wifi);
+  showHide('eb_ev_lte_row',     !!dev.has_lte);
+  showHide('eb_ev_ble_row',     !!dev.has_ble);
+  showHide('eb_ev_lte_stat_row',!!dev.has_lte);
 
-  // Show/hide harvest section
+  // BLE checkbox
+  const bleCheck = document.getElementById('eb_ble_en_wrap');
+  if (bleCheck) bleCheck.style.display = dev.has_ble ? '' : 'none';
+  const bleEnEl = eb('ble_en');
+  if (bleEnEl) bleEnEl.checked = !!dev.has_ble;
+
+  // WiFi checkbox
+  const wifiEnEl = eb('wifi_en');
+  if (wifiEnEl) wifiEnEl.checked = !!dev.wifi;
+
+  // Harvest section
   const hSection = eb('harvest_section');
   if (hSection) hSection.style.display = dev.hasHarvest ? '' : 'none';
-  if (dev.hasHarvest && dev.opvArea_cm2) {
-    eb('opv_area').value = dev.opvArea_cm2;
-  }
+  if (dev.hasHarvest && dev.opvArea_cm2) eb('opv_area').value = dev.opvArea_cm2;
+
   ebCalc();
 }
 
 // Wire up all inputs
 function ebInit() {
-  ['device','chem','bat_mAh','sf','p1','p2','p3','indoor_pct',
+  ['device','chem','bat_mAh','sf','batch_size','p1','p2','p3','indoor_pct',
    'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
-   'wifi_en','gnss_en',
+   'wifi_en','gnss_en','ble_en',
    'ev_idle_uA','ev_gnss_a_mA','ev_gnss_a_s','ev_gnss_auto_mA','ev_gnss_auto_s',
-   'ev_wifi_mA','ev_wifi_s','ev_lte_mA','ev_lte_s',
+   'ev_wifi_mA','ev_wifi_s','ev_ble_mA','ev_ble_s','ev_lte_mA','ev_lte_s',
    'harvest_en','opv_area','opv_lux','opv_hours'].forEach(id => {
     const el = eb(id);
     if (!el) return;
