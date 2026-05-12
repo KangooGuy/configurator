@@ -793,7 +793,7 @@
           </div>
           <div class="field">
             <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Equivalent (J)</label>
-            <div class="result-box" id="eb_result_batcap" style="padding:8px 11px;min-height:34px;font-size:0.82rem;line-height:1.4">—</div>
+            <div class="result-box" id="eb_batcap_display" style="padding:8px 11px;min-height:34px;font-size:0.82rem;line-height:1.4">—</div>
           </div>
         </div>
       </div>
@@ -836,11 +836,6 @@
               <label for="eb_p3">Attempt 3 (%)</label>
               <input type="number" id="eb_p3" value="100" min="0" max="100" step="1">
             </div>
-          </div>
-        </div>
-          <div class="field">
-            <label for="eb_batch_size">Batch size <span style="font-weight:400;font-size:0.7rem;color:var(--muted)">(1 confirmed every N messages)</span></label>
-            <input type="number" id="eb_batch_size" value="1" min="1" max="100" step="1">
           </div>
         </div>
         <div class="frow" style="margin-top:10px">
@@ -1072,37 +1067,45 @@
     </div>
 
     <!-- RIGHT: Results -->
-    <div style="display:grid;gap:14px;align-content:start">
+    <div style="display:grid;gap:12px;align-content:start">
 
-      <!-- Lifetime -->
-      <div class="card" style="text-align:center;padding:28px 20px">
-        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">Estimated Battery Life</div>
-        <div id="eb_result_life" style="font-size:2.4rem;font-weight:800;font-family:var(--mono);color:var(--accent);letter-spacing:-0.02em;line-height:1.1;margin-bottom:10px">—</div>
-        <div id="eb_result_harvest" style="font-size:0.78rem;color:var(--muted);margin-bottom:5px"></div>
-        <div id="eb_result_total" style="font-size:0.75rem;font-family:var(--mono);color:var(--muted)"></div>
-      </div>
-
-      <!-- Donut chart -->
-      <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:12px">
-        <h2 style="align-self:flex-start">Energy Breakdown / Day</h2>
-        <div id="eb_donut"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;width:100%;font-size:0.77rem;color:var(--muted)">
-          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>Self-discharge</div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#3a9fff;flex-shrink:0"></span>Idle</div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#f5a623;flex-shrink:0"></span>GNSS fixes</div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#b36fff;flex-shrink:0"></span>WiFi scans</div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>LoRa TX/RX</div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#3a9fff;flex-shrink:0"></span>LTE comm.</div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;border:2px dashed var(--accent);flex-shrink:0"></span>Harvest (IN)</div>
+      <!-- Lifetime — compact banner -->
+      <div class="card" style="padding:14px 18px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">
+          <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:4px">Estimated Battery Life</div>
+          <div id="eb_result_life" style="font-size:2rem;font-weight:800;font-family:var(--mono);color:var(--accent);letter-spacing:-0.02em;line-height:1">—</div>
+        </div>
+        <div style="flex:1;min-width:140px;font-size:0.75rem;font-family:var(--mono)">
+          <div id="eb_result_harvest" style="color:var(--accent);margin-bottom:3px"></div>
+          <div id="eb_result_total" style="color:var(--muted)"></div>
+          <div id="eb_result_batcap" style="color:var(--muted);margin-top:3px"></div>
         </div>
       </div>
 
-      <!-- Count chart -->
-      <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:12px">
-        <h2 style="align-self:flex-start">Events / Day — Count</h2>
-        <div style="display:flex;gap:16px;align-items:center;width:100%">
-          <div id="eb_count_chart" style="flex-shrink:0"></div>
-          <div id="eb_count_legend" style="flex:1;display:grid;gap:6px"></div>
+      <!-- Two charts side by side -->
+      <div class="card" style="padding:14px 18px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <!-- Energy donut -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);align-self:flex-start">Energy / day</div>
+            <div id="eb_donut"></div>
+            <div style="display:grid;gap:3px;width:100%;font-size:0.72rem;color:var(--muted)">
+              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>Self-discharge</div>
+              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#888;flex-shrink:0"></span>Idle</div>
+              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#f5a623;flex-shrink:0"></span>GNSS</div>
+              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#b36fff;flex-shrink:0"></span>WiFi</div>
+              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#ff6b6b;flex-shrink:0"></span>BLE</div>
+              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>LoRa</div>
+              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#3a9fff;flex-shrink:0"></span>LTE</div>
+              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:3px;border:1px dashed var(--accent);flex-shrink:0"></span>Harvest</div>
+            </div>
+          </div>
+          <!-- Count donut -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);align-self:flex-start">Events / day</div>
+            <div id="eb_count_chart"></div>
+            <div id="eb_count_legend" style="display:grid;gap:3px;width:100%"></div>
+          </div>
         </div>
       </div>
 
@@ -1110,8 +1113,6 @@
       <div class="card">
         <h2>Per-Component Detail</h2>
         <table style="width:100%;border-collapse:collapse;margin-top:8px" id="eb_result_table"></table>
-        <div class="div" style="margin:10px 0 8px"></div>
-        <div id="eb_result_batcap" style="font-size:0.77rem;font-family:var(--mono);color:var(--muted)"></div>
       </div>
 
       <!-- Per-event stats -->
@@ -2370,6 +2371,8 @@ function ebCalc() {
   if (totalEl) totalEl.textContent = 'Total OUT: '+fmtJ(totalOut_J_day)+'/day   NET: '+fmtJ(Math.max(0,netOut_J_day))+'/day';
   const batEl = document.getElementById('eb_result_batcap');
   if (batEl) batEl.textContent = 'Battery: '+fmtJ(bat_J)+' ('+c.bat_mAh+' mAh @ '+V+' V)';
+  const batDisp = document.getElementById('eb_batcap_display');
+  if (batDisp) batDisp.textContent = fmtJ(bat_J);
 
   // ── Energy breakdown table + donut ──
   const energyComponents = [
