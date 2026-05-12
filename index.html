@@ -948,13 +948,38 @@
       <div class="card">
         <h2>Per-Event Energies</h2>
         <table class="ref-table" style="margin-top:8px">
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th style="text-align:right">Current (mA)</th>
+              <th style="text-align:right">Duration (s)</th>
+              <th style="text-align:right">Energy / event</th>
+            </tr>
+          </thead>
           <tbody>
-            <tr><td>Position fixes / day</td><td id="eb_stat_locday" style="color:var(--text);font-family:var(--mono);font-size:0.8rem">—</td></tr>
-            <tr><td>Heartbeat / day</td><td id="eb_stat_hbday" style="color:var(--text);font-family:var(--mono);font-size:0.8rem">—</td></tr>
-            <tr><td>LoRa energy / msg (incl. PER)</td><td id="eb_stat_lmsg" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
-            <tr><td>GNSS energy / fix</td><td id="eb_stat_gnssfix" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
-            <tr><td>WiFi energy / scan</td><td id="eb_stat_wifi" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
-            <tr id="eb_harvest_stats" style="display:none"><td>Harvested / day</td><td id="eb_stat_harvest_row" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
+            <tr><td>Idle (24 h baseline)</td>
+                <td id="eb_stat_idle_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_idle_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">86400 s</td>
+                <td id="eb_stat_idle_e"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
+            <tr><td>LoRa TX/RX per msg (incl. PER, UL/fix)</td>
+                <td id="eb_stat_lora_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">35 mA (TX)</td>
+                <td id="eb_stat_lora_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_lmsg"    style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
+            <tr><td>GNSS fix (assisted, outdoor)</td>
+                <td id="eb_stat_gnss_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_gnss_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_gnssfix" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
+            <tr><td>WiFi scan (indoor)</td>
+                <td id="eb_stat_wifi_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_wifi_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_wifi"    style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
+            <tr><td>Position fixes / day (moving + steady)</td>
+                <td colspan="2" id="eb_stat_locday" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--text)">—</td>
+                <td id="eb_stat_hbday" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td></tr>
+            <tr id="eb_harvest_stats" style="display:none">
+                <td>Harvested / day</td>
+                <td colspan="2" style="text-align:right;color:var(--muted);font-size:0.8rem">OPV</td>
+                <td id="eb_stat_harvest_row" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
           </tbody>
         </table>
       </div>
@@ -1790,10 +1815,29 @@ selectDevice('tagsl');
 (function() {
 
 // ── Hardware profiles (from measurement spreadsheets) ──
-// LoRa charge per message: TX + RX1 + RX2 windows (µA·s)
-// Source: Nomad XS EnergyAnalysis sheet, SX1262, BW=125kHz, CR=4/5, preamble=8
-// I_TX=35mA, I_RX=10mA. Energy = charge_uAs * 1e-6 * V_bat
-const LORA_CHARGE_UAS = { 7: 6296.32, 9: 14453.76, 12: 91545.6 };
+// LoRa time-on-air (TX only, seconds) — Semtech AN1200.13, EU868, BW=125 kHz, CR=4/5,
+// preamble=8, 51 bytes app payload + 13 bytes LoRaWAN overhead = 64 bytes total.
+// LDRO active for SF11 and SF12.
+const LORA_TOA_S = {
+   7: 0.118016,
+   8: 0.215552,
+   9: 0.390144,
+  10: 0.698368,
+  11: 1.560576,
+  12: 2.793472,
+};
+
+// Charge per full LoRaWAN transaction (TX + RX1 + RX2 windows) in µA·s
+// I_TX=35 mA, I_RX=10 mA, RX1=8 symbols at same SF, RX2=8 symbols at SF12 (EU868 default)
+const LORA_CHARGE_UAS = {
+   7:   6833.92,
+   8:  10329.60,
+   9:  16604.16,
+  10:  27719.68,
+  11:  58552.32,
+  12: 103014.40,
+};
+const LORA_TX_MA = 35;   // mA – SX1262 TX current
 
 // OPV harvest table (J per day) – raw OPV output before PMIC losses
 // Source: Energy_budget_ Sheet2, OPV area = 35 cm², excludes storage losses
@@ -1841,7 +1885,7 @@ const DEVICES = {
   lumen: {
     label:        'Lumen (Smart Label)',
     V:            3.7,    // V – LiPo nominal
-    I_idle_uA:   22,    // µA – incl. PCM 3 µA
+    I_idle_uA:   25,    // µA – incl. PCM 3 µA
     gnssAssisted: { I_mA: 8,    t_s: 40  },  // Assisted GNSS per fix
     gnssAuto:     { I_mA: 15,   t_s: 150 },  // Autonomous GNSS (cold start approx)
     wifi:         { I_mA: 12.6, t_s: 3.5 },  // WiFi scan
@@ -1854,7 +1898,7 @@ const DEVICES = {
   tags: {
     label:        'Tag S',
     V:            3.7,    // V – LiPo nominal
-    I_idle_uA:   15,
+    I_idle_uA:   25,
     gnssAssisted: { I_mA: 8,    t_s: 40  },
     gnssAuto:     { I_mA: 15,   t_s: 150 },
     wifi:         { I_mA: 24,   t_s: 3.5 },
@@ -1866,7 +1910,7 @@ const DEVICES = {
   tagl: {
     label:        'Tag L',
     V:            3.7,    // V – LiPo nominal
-    I_idle_uA:   15,
+    I_idle_uA:   25,
     gnssAssisted: { I_mA: 8,    t_s: 40  },
     gnssAuto:     { I_mA: 15,   t_s: 150 },
     wifi:         { I_mA: 24,   t_s: 3.5 },
@@ -1878,7 +1922,7 @@ const DEVICES = {
   tagxl: {
     label:        'Tag XL',
     V:            3.6,    // V – Primary Li (Energizer L91) nominal
-    I_idle_uA:   15,
+    I_idle_uA:   25,
     gnssAssisted: { I_mA: 8,    t_s: 40  },
     gnssAuto:     { I_mA: 15,   t_s: 150 },
     wifi:         { I_mA: 24,   t_s: 3.5 },
@@ -1890,7 +1934,7 @@ const DEVICES = {
   cellular: {
     label:        'Cellular Tracker',
     V:            3.7,
-    I_idle_uA:   30,
+    I_idle_uA:   25,
     gnssAssisted: { I_mA: 14,   t_s: 40  },
     gnssAuto:     { I_mA: 14,   t_s: 600 },  // continuous GNSS tracking mode
     wifi:         { I_mA: 12.6, t_s: 3.5 },
@@ -1902,7 +1946,7 @@ const DEVICES = {
   nomadxs: {
     label:        'Nomad XS',
     V:            3.3,    // V – regulated
-    I_idle_uA:   20,    // sleep: MCU 2µA + peripherals
+    I_idle_uA:   25,    // sleep: MCU 2µA + peripherals
     gnssAssisted: { I_mA: 34.5, t_s: 60  },  // ZOE-M8Q TTFF
     gnssAuto:     { I_mA: 34.5, t_s: 180 },  // cold-start longer
     wifi:         null,
@@ -1967,6 +2011,7 @@ function ebCalc() {
   // ── LoRa energy per message (J) ──
   // Account for packet error rate: avg tx = 1/(1-PER) per message
   const loraCharge_uAs = LORA_CHARGE_UAS[c.sf] || LORA_CHARGE_UAS[9];
+  const loraToa_s       = LORA_TOA_S[c.sf]      || LORA_TOA_S[9];
   const lora_J_msg_nominal = loraCharge_uAs * 1e-6 * V;  // J per single attempt
   const per_factor = c.per_pct < 1 ? 1 / (1 - c.per_pct) : 5; // cap at 5× retries
   const lora_J_msg = lora_J_msg_nominal * per_factor;
@@ -2094,9 +2139,45 @@ function ebCalc() {
   if (fixDayEl) fixDayEl.textContent =
     `${loc_per_day.toFixed(1)} fix/day  (${loc_moving.toFixed(1)} moving + ${loc_steady.toFixed(1)} steady)`;
 
-  eb('stat_locday').textContent = loc_per_day.toFixed(1) + ' fix/day';
-  eb('stat_hbday').textContent  = hb_per_day.toFixed(1)  + ' HB/day';
-  eb('stat_lmsg').textContent   = fmtJ(lora_J_msg) + '/msg · ' + gnss_ul + ' UL/fix';
+  // Idle row
+  const idleI = dev.I_idle_uA / 1000; // mA
+  const idleE = dev.I_idle_uA * 1e-6 * V * 86400;
+  const setCell = (id, v) => { const el = document.getElementById('eb_' + id); if (el) el.textContent = v; };
+  setCell('stat_idle_i',  (dev.I_idle_uA / 1000).toFixed(3) + ' mA');
+  setCell('stat_idle_t',  '86400 s');
+  setCell('stat_idle_e',  fmtJ(idleE) + '/day');
+
+  // LoRa row
+  const toaMs = (loraToa_s * 1000).toFixed(1);
+  setCell('stat_lora_i', '35 mA (TX)');
+  setCell('stat_lora_t', `${toaMs} ms ToA`);
+  setCell('stat_lmsg',   fmtJ(lora_J_msg) + ' · ' + gnss_ul + ' UL/fix');
+
+  // GNSS row
+  if (dev.gnssAssisted) {
+    setCell('stat_gnss_i', dev.gnssAssisted.I_mA.toFixed(1) + ' mA');
+    setCell('stat_gnss_t', dev.gnssAssisted.t_s + ' s');
+    setCell('stat_gnssfix', c.gnss_enabled
+      ? fmtJ(dev.gnssAssisted.I_mA * 1e-3 * V * dev.gnssAssisted.t_s) + '/fix'
+      : 'disabled');
+  }
+
+  // WiFi row
+  if (dev.wifi) {
+    setCell('stat_wifi_i', dev.wifi.I_mA.toFixed(1) + ' mA');
+    setCell('stat_wifi_t', dev.wifi.t_s + ' s');
+    setCell('stat_wifi', c.wifi_enabled
+      ? fmtJ(dev.wifi.I_mA * 1e-3 * V * dev.wifi.t_s) + '/scan'
+      : 'disabled');
+  } else {
+    setCell('stat_wifi_i', 'N/A');
+    setCell('stat_wifi_t', 'N/A');
+    setCell('stat_wifi', 'no WiFi');
+  }
+
+  // Fixes/day and HB/day
+  eb('stat_locday').textContent = `${loc_per_day.toFixed(1)} fix/day (${loc_moving.toFixed(1)} mvg + ${loc_steady.toFixed(1)} sted)`;
+  eb('stat_hbday').textContent  = hb_per_day.toFixed(1) + ' HB/day';
   eb('stat_gnssfix').textContent = gnss_J_day > 0 ? fmtJ(gnss_J_day / (loc_per_day || 1)) + '/fix' : 'disabled';
   eb('stat_wifi').textContent   = wifi_J_day > 0 ? fmtJ(wifi_J_day / (loc_per_day * (c.indoor_pct||1) || 1)) + '/scan' : 'disabled';
 
