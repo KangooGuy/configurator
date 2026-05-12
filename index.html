@@ -888,6 +888,105 @@
         </div>
       </div>
 
+      <!-- Event Parameters -->
+      <div class="card">
+        <h2>Event Parameters</h2>
+        <div class="card-sub">Adjust measured current and duration for each hardware event. Defaults are loaded from the selected tracker profile.</div>
+        <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:0.82rem">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:5px 8px;color:var(--muted);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Event</th>
+              <th style="text-align:right;padding:5px 8px;color:var(--muted);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Current</th>
+              <th style="text-align:right;padding:5px 8px;color:var(--muted);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Duration (s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:7px 8px;color:var(--muted)">Idle</td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_idle_uA" value="25" min="0.1" max="10000" step="0.1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem;white-space:nowrap">µA</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px;text-align:right;color:var(--muted);font-family:var(--mono);font-size:0.8rem">86 400 s (fixed)</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 8px;color:var(--muted)">GNSS fix — assisted (outdoor)</td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_gnss_a_mA" value="8" min="0.1" max="500" step="0.1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">mA</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_gnss_a_s" value="40" min="1" max="3600" step="1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">s</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:7px 8px;color:var(--muted)">GNSS fix — autonomous (indoor)</td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_gnss_auto_mA" value="15" min="0.1" max="500" step="0.1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">mA</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_gnss_auto_s" value="150" min="1" max="3600" step="1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">s</span>
+                </div>
+              </td>
+            </tr>
+            <tr id="eb_ev_wifi_row">
+              <td style="padding:7px 8px;color:var(--muted)">WiFi scan</td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_wifi_mA" value="12.6" min="0.1" max="500" step="0.1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">mA</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_wifi_s" value="3.5" min="0.1" max="60" step="0.1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">s</span>
+                </div>
+              </td>
+            </tr>
+            <tr id="eb_ev_lte_row" style="display:none">
+              <td style="padding:7px 8px;color:var(--muted)">LTE communication <span style="font-size:0.7rem;background:rgba(58,159,255,0.1);color:#3a9fff;border:1px solid rgba(58,159,255,0.25);border-radius:4px;padding:1px 5px;margin-left:4px">1×/day</span></td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_lte_mA" value="150" min="1" max="2000" step="1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">mA</span>
+                </div>
+              </td>
+              <td style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+                  <input type="number" id="eb_ev_lte_s" value="120" min="1" max="3600" step="1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem">s</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div id="eb_gnss_continuous_note" style="display:none;margin-top:8px" class="hint-box">
+          <span style="color:var(--warn)">⚡ Continuous GNSS mode active</span> — moving interval &lt; 5 min: GNSS stays ON for the full movement duration instead of per-fix acquisition.
+        </div>
+      </div>
+
       <!-- Harvesting -->
       <div class="card" id="eb_harvest_section">
         <h2>Energy Harvesting (OPV)</h2>
@@ -954,6 +1053,7 @@
           <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#f5a623;flex-shrink:0"></span>GNSS fixes</div>
           <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#b36fff;flex-shrink:0"></span>WiFi scans</div>
           <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>LoRa TX/RX</div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#3a9fff;flex-shrink:0"></span>LTE comm.</div>
           <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;border:2px dashed var(--accent);flex-shrink:0"></span>Harvest (IN)</div>
         </div>
       </div>
@@ -1002,6 +1102,11 @@
                 <td>Harvested / day</td>
                 <td colspan="2" style="text-align:right;color:var(--muted);font-size:0.8rem">OPV</td>
                 <td id="eb_stat_harvest_row" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
+            <tr id="eb_ev_lte_stat_row" style="display:none">
+                <td>LTE communication (1×/day)</td>
+                <td id="eb_stat_lte_i" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_lte_t" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
+                <td id="eb_stat_lte_e" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:#3a9fff">—</td></tr>
           </tbody>
         </table>
       </div>
@@ -1924,7 +2029,8 @@ const DEVICES = {
     gnssAssisted: { I_mA: 8,    t_s: 40  },
     gnssAuto:     { I_mA: 15,   t_s: 150 },
     wifi:         { I_mA: 24,   t_s: 3.5 },
-    gnss_uplinks: 1,   // on-chip position solving → 1 UL per fix
+    gnss_uplinks: 1,
+    gnss_continuous: true, // GNSS stays ON if moving_interval < 5 min
     defBat_mAh:  320,
     defChem:     'lipo',
     hasHarvest:  false,
@@ -1958,9 +2064,12 @@ const DEVICES = {
     V:            3.7,
     I_idle_uA:   25,
     gnssAssisted: { I_mA: 14,   t_s: 40  },
-    gnssAuto:     { I_mA: 14,   t_s: 600 },  // continuous GNSS tracking mode
+    gnssAuto:     { I_mA: 14,   t_s: 600 },
     wifi:         { I_mA: 12.6, t_s: 3.5 },
-    gnss_uplinks: 1,   // on-chip position solving → 1 UL per fix
+    lte:          { I_mA: 150,  t_s: 120 }, // LTE data sync, 1×/day default
+    gnss_uplinks: 1,
+    gnss_continuous: true, // GNSS stays ON if moving_interval < 5 min
+    has_lte:     true,
     defBat_mAh:  2000,
     defChem:     'lipo',
     hasHarvest:  false,
@@ -2006,6 +2115,16 @@ function ebGetConfig() {
     hb_interval_s:     parseFloat(eb('hb_interval_s').value)     || 86400,
     wifi_enabled:    eb('wifi_en').checked,
     gnss_enabled:    eb('gnss_en').checked,
+    // Event parameters (user-adjustable)
+    ev_idle_uA:      parseFloat(eb('ev_idle_uA').value)      || 25,
+    ev_gnss_a_mA:    parseFloat(eb('ev_gnss_a_mA').value)    || 8,
+    ev_gnss_a_s:     parseFloat(eb('ev_gnss_a_s').value)     || 40,
+    ev_gnss_auto_mA: parseFloat(eb('ev_gnss_auto_mA').value) || 15,
+    ev_gnss_auto_s:  parseFloat(eb('ev_gnss_auto_s').value)  || 150,
+    ev_wifi_mA:      parseFloat(eb('ev_wifi_mA').value)      || 12.6,
+    ev_wifi_s:       parseFloat(eb('ev_wifi_s').value)       || 3.5,
+    ev_lte_mA:       parseFloat(eb('ev_lte_mA').value)       || 150,
+    ev_lte_s:        parseFloat(eb('ev_lte_s').value)        || 120,
     harvest_enabled: eb('harvest_en').checked,
     opv_area_cm2:    parseFloat(eb('opv_area').value)         || 0,
     opv_lux:         parseInt(eb('opv_lux').value, 10)        || 0,
@@ -2030,7 +2149,7 @@ function ebCalc() {
   const selfDischarge_J_day = bat_J * (chem.self_discharge_pct_month / 100) / 30.44;
 
   // ── Idle energy (J/day) ──
-  const idle_J_day = dev.I_idle_uA * 1e-6 * V * 86400;  // J/day
+  const idle_J_day = c.ev_idle_uA * 1e-6 * V * 86400;  // J/day
 
   // ── LoRa energy per message (J) ──
   // Account for packet error rate: avg tx = 1/(1-PER) per message
@@ -2061,29 +2180,53 @@ function ebCalc() {
   const gnss_ul = dev.gnss_uplinks || 1;
   const lora_J_day = (loc_per_day * gnss_ul + hb_per_day) * lora_J_msg;
 
-  // ── GNSS energy (J/day) ──
+  // ── Per-event energies (using user-adjustable parameters) ──
+  const E_gnss_a    = c.ev_gnss_a_mA    * 1e-3 * V * c.ev_gnss_a_s;    // J per assisted fix
+  const E_gnss_auto = c.ev_gnss_auto_mA * 1e-3 * V * c.ev_gnss_auto_s; // J per autonomous fix
+  const E_wifi_fix  = (dev.wifi) ? c.ev_wifi_mA * 1e-3 * V * c.ev_wifi_s : 0; // J per WiFi scan
+
+  const outdoor = 1 - c.indoor_pct;
+  const indoor  = c.indoor_pct;
+
+  // Continuous GNSS mode: GNSS stays ON when moving_interval < 5 min (300 s)
+  const continuous = dev.gnss_continuous && c.moving_interval_s < 300;
+
+  // Show/hide continuous GNSS banner
+  const contNote = document.getElementById('eb_gnss_continuous_note');
+  if (contNote) contNote.style.display = continuous ? '' : 'none';
+
   let gnss_J_day = 0;
-  if (c.gnss_enabled && dev.gnssAssisted) {
-    const outdoor_ratio = 1 - c.indoor_pct;
-    const E_assisted   = dev.gnssAssisted.I_mA * 1e-3 * V * dev.gnssAssisted.t_s;  // J per fix
-    const E_autonomous = dev.gnssAuto.I_mA    * 1e-3 * V * dev.gnssAuto.t_s;       // J per fix
-    gnss_J_day = loc_per_day * (outdoor_ratio * E_assisted + c.indoor_pct * E_autonomous);
+  let wifi_J_day = 0;
+
+  if (c.gnss_enabled) {
+    if (continuous) {
+      // GNSS chipset stays ON for the entire movement period
+      gnss_J_day = c.ev_gnss_a_mA * 1e-3 * V * movement_s;   // continuous draw during movement
+      // Steady period: normal per-fix model
+      if (c.wifi_enabled && dev.wifi) {
+        gnss_J_day += loc_steady * outdoor * E_gnss_a;
+        wifi_J_day  = loc_steady * indoor  * E_wifi_fix;
+      } else {
+        gnss_J_day += loc_steady * (outdoor * E_gnss_a + indoor * E_gnss_auto);
+      }
+    } else {
+      // Normal per-fix model for all periods
+      if (c.wifi_enabled && dev.wifi) {
+        gnss_J_day = loc_per_day * outdoor * E_gnss_a;
+        wifi_J_day = loc_per_day * indoor  * E_wifi_fix;
+      } else {
+        gnss_J_day = loc_per_day * (outdoor * E_gnss_a + indoor * E_gnss_auto);
+      }
+    }
+  } else if (c.wifi_enabled && dev.wifi) {
+    // GNSS disabled — WiFi only
+    wifi_J_day = loc_per_day * E_wifi_fix;
   }
 
-  // ── WiFi energy (J/day) ──
-  let wifi_J_day = 0;
-  if (c.wifi_enabled && c.gnss_enabled && dev.wifi) {
-    // Indoor positions use WiFi instead of GNSS
-    const E_wifi = dev.wifi.I_mA * 1e-3 * V * dev.wifi.t_s;  // J per scan
-    // When GNSS is enabled, indoor uses WiFi (replace autonomous GNSS with WiFi for indoor)
-    const E_gnssAuto = dev.gnssAuto.I_mA * 1e-3 * V * dev.gnssAuto.t_s;
-    // Replace autonomous component with WiFi
-    gnss_J_day = loc_per_day * ((1-c.indoor_pct) * (dev.gnssAssisted.I_mA * 1e-3 * V * dev.gnssAssisted.t_s));
-    wifi_J_day = loc_per_day * c.indoor_pct * E_wifi;
-  } else if (c.wifi_enabled && !c.gnss_enabled && dev.wifi) {
-    // WiFi only positioning
-    const E_wifi = dev.wifi.I_mA * 1e-3 * V * dev.wifi.t_s;
-    wifi_J_day = loc_per_day * E_wifi;
+  // ── LTE communication energy (cellular tracker only, 1× per day) ──
+  let lte_J_day = 0;
+  if (dev.has_lte) {
+    lte_J_day = c.ev_lte_mA * 1e-3 * V * c.ev_lte_s;  // 1 event per day
   }
 
   // ── Harvesting energy (J/day) ──
@@ -2096,7 +2239,7 @@ function ebCalc() {
   }
 
   // ── Totals ──
-  const totalOut_J_day = selfDischarge_J_day + idle_J_day + lora_J_day + gnss_J_day + wifi_J_day;
+  const totalOut_J_day = selfDischarge_J_day + idle_J_day + lora_J_day + gnss_J_day + wifi_J_day + lte_J_day;
   const netOut_J_day   = totalOut_J_day - harvest_J_day;
 
   let life_days, infinite = false;
@@ -2137,6 +2280,7 @@ function ebCalc() {
     { label: 'GNSS fixes',      J: gnss_J_day,          color: '#f5a623' },
     { label: 'WiFi scans',      J: wifi_J_day,          color: '#b36fff' },
     { label: 'LoRa TX/RX',      J: lora_J_day,          color: 'var(--accent)' },
+    { label: 'LTE comm.',       J: lte_J_day,           color: '#3a9fff' },
   ];
 
   const totalForPct = totalOut_J_day || 1;
@@ -2166,15 +2310,15 @@ function ebCalc() {
 
   // Stats
   // ── Stats display ──
+  const setCell = (id, v) => { const el = document.getElementById('eb_' + id); if (el) el.textContent = v; };
+
   const fixDayEl = document.getElementById('eb_stat_fixday');
   if (fixDayEl) fixDayEl.textContent =
     `${loc_per_day.toFixed(1)} fix/day  (${loc_moving.toFixed(1)} moving + ${loc_steady.toFixed(1)} steady)`;
 
   // Idle row
-  const idleI = dev.I_idle_uA / 1000; // mA
-  const idleE = dev.I_idle_uA * 1e-6 * V * 86400;
-  const setCell = (id, v) => { const el = document.getElementById('eb_' + id); if (el) el.textContent = v; };
-  setCell('stat_idle_i',  (dev.I_idle_uA / 1000).toFixed(3) + ' mA');
+  const idleE = c.ev_idle_uA * 1e-6 * V * 86400;
+  setCell('stat_idle_i',  (c.ev_idle_uA / 1000).toFixed(4) + ' mA');
   setCell('stat_idle_t',  '86400 s');
   setCell('stat_idle_e',  fmtJ(idleE) + '/day');
 
@@ -2188,21 +2332,23 @@ function ebCalc() {
   const etxEl = document.getElementById('eb_stat_etx');
   if (etxEl) etxEl.textContent = etx.toFixed(3) + ' tx/msg';
 
-  // GNSS row
-  if (dev.gnssAssisted) {
-    setCell('stat_gnss_i', dev.gnssAssisted.I_mA.toFixed(1) + ' mA');
-    setCell('stat_gnss_t', dev.gnssAssisted.t_s + ' s');
-    setCell('stat_gnssfix', c.gnss_enabled
-      ? fmtJ(dev.gnssAssisted.I_mA * 1e-3 * V * dev.gnssAssisted.t_s) + '/fix'
-      : 'disabled');
-  }
+  // GNSS row — use ev_ params
+  setCell('stat_gnss_i', c.ev_gnss_a_mA.toFixed(1) + ' mA' + (continuous ? ' (cont.)' : ''));
+  setCell('stat_gnss_t', continuous
+    ? ((movement_s/3600).toFixed(1) + ' h cont. + ' + c.ev_gnss_a_s + ' s/fix steady')
+    : c.ev_gnss_a_s + ' s');
+  setCell('stat_gnssfix', c.gnss_enabled
+    ? (continuous
+        ? fmtJ(gnss_J_day) + '/day (cont.)'
+        : fmtJ(E_gnss_a) + '/fix')
+    : 'disabled');
 
-  // WiFi row
+  // WiFi row — use ev_ params
   if (dev.wifi) {
-    setCell('stat_wifi_i', dev.wifi.I_mA.toFixed(1) + ' mA');
-    setCell('stat_wifi_t', dev.wifi.t_s + ' s');
+    setCell('stat_wifi_i', c.ev_wifi_mA.toFixed(1) + ' mA');
+    setCell('stat_wifi_t', c.ev_wifi_s + ' s');
     setCell('stat_wifi', c.wifi_enabled
-      ? fmtJ(dev.wifi.I_mA * 1e-3 * V * dev.wifi.t_s) + '/scan'
+      ? fmtJ(E_wifi_fix) + '/scan'
       : 'disabled');
   } else {
     setCell('stat_wifi_i', 'N/A');
@@ -2213,8 +2359,15 @@ function ebCalc() {
   // Fixes/day and HB/day
   eb('stat_locday').textContent = `${loc_per_day.toFixed(1)} fix/day (${loc_moving.toFixed(1)} mvg + ${loc_steady.toFixed(1)} sted)`;
   eb('stat_hbday').textContent  = hb_per_day.toFixed(1) + ' HB/day';
-  eb('stat_gnssfix').textContent = gnss_J_day > 0 ? fmtJ(gnss_J_day / (loc_per_day || 1)) + '/fix' : 'disabled';
-  eb('stat_wifi').textContent   = wifi_J_day > 0 ? fmtJ(wifi_J_day / (loc_per_day * (c.indoor_pct||1) || 1)) + '/scan' : 'disabled';
+
+  // LTE row
+  const lteRow = document.getElementById('eb_ev_lte_stat_row');
+  if (lteRow) {
+    lteRow.style.display = dev.has_lte ? '' : 'none';
+    setCell('stat_lte_i', c.ev_lte_mA + ' mA');
+    setCell('stat_lte_t', c.ev_lte_s + ' s');
+    setCell('stat_lte_e', dev.has_lte ? fmtJ(lte_J_day) + '/day' : 'N/A');
+  }
 
   // Show/hide harvest stats
   eb('harvest_stats').style.display = c.harvest_enabled ? '' : 'none';
@@ -2274,6 +2427,31 @@ function ebOnDeviceChange() {
   eb('chem').value      = dev.defChem;
   eb('wifi_en').checked = !!dev.wifi;
   eb('gnss_en').checked = true;
+
+  // Populate event parameter inputs from device defaults
+  eb('ev_idle_uA').value      = dev.I_idle_uA;
+  eb('ev_gnss_a_mA').value    = dev.gnssAssisted ? dev.gnssAssisted.I_mA  : 8;
+  eb('ev_gnss_a_s').value     = dev.gnssAssisted ? dev.gnssAssisted.t_s   : 40;
+  eb('ev_gnss_auto_mA').value = dev.gnssAuto     ? dev.gnssAuto.I_mA      : 15;
+  eb('ev_gnss_auto_s').value  = dev.gnssAuto     ? dev.gnssAuto.t_s       : 150;
+  if (dev.wifi) {
+    eb('ev_wifi_mA').value = dev.wifi.I_mA;
+    eb('ev_wifi_s').value  = dev.wifi.t_s;
+  }
+  if (dev.lte) {
+    eb('ev_lte_mA').value = dev.lte.I_mA;
+    eb('ev_lte_s').value  = dev.lte.t_s;
+  }
+
+  // Show/hide WiFi row
+  const wifiRow = document.getElementById('eb_ev_wifi_row');
+  if (wifiRow) wifiRow.style.display = dev.wifi ? '' : 'none';
+
+  // Show/hide LTE row
+  const lteRow = document.getElementById('eb_ev_lte_row');
+  if (lteRow) lteRow.style.display = dev.has_lte ? '' : 'none';
+
+  // Show/hide harvest section
   const hSection = eb('harvest_section');
   if (hSection) hSection.style.display = dev.hasHarvest ? '' : 'none';
   if (dev.hasHarvest && dev.opvArea_cm2) {
@@ -2287,6 +2465,8 @@ function ebInit() {
   ['device','chem','bat_mAh','sf','p1','p2','p3','indoor_pct',
    'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
    'wifi_en','gnss_en',
+   'ev_idle_uA','ev_gnss_a_mA','ev_gnss_a_s','ev_gnss_auto_mA','ev_gnss_auto_s',
+   'ev_wifi_mA','ev_wifi_s','ev_lte_mA','ev_lte_s',
    'harvest_en','opv_area','opv_lux','opv_hours'].forEach(id => {
     const el = eb(id);
     if (!el) return;
