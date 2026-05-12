@@ -801,24 +801,46 @@
       <!-- LoRa Configuration -->
       <div class="card">
         <h2>LoRa Configuration</h2>
-        <div class="card-sub">Spreading factor determines time-on-air. PER increases expected retransmissions (geometric model: E[tx] = 1/(1−PER)).</div>
+        <div class="card-sub">LR1110 store-and-forward: each message is retried up to 3 times. Set the per-attempt reception probability to model your network coverage.</div>
         <div class="frow" style="margin-top:10px">
           <div class="field">
             <label for="eb_sf">Spreading Factor (EU868)</label>
             <select id="eb_sf">
-              <option value="7">SF7 — DR5 · 103 ms ToA · fastest</option>
-              <option value="9" selected>SF9 — DR3 · 329 ms ToA</option>
-              <option value="12">SF12 — DR0 · 2466 ms ToA · longest range</option>
+              <option value="7">SF7 — DR5 · 118 ms ToA</option>
+              <option value="8">SF8 — DR4 · 216 ms ToA</option>
+              <option value="9" selected>SF9 — DR3 · 390 ms ToA</option>
+              <option value="10">SF10 — DR2 · 698 ms ToA</option>
+              <option value="11">SF11 — DR1 · 1561 ms ToA</option>
+              <option value="12">SF12 — DR0 · 2793 ms ToA</option>
             </select>
           </div>
           <div class="field">
-            <label for="eb_per_pct">Packet Error Rate — PER (%)</label>
-            <input type="number" id="eb_per_pct" value="10" min="0" max="90" step="1">
+            <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Expected transmissions / msg</label>
+            <div class="result-box" id="eb_stat_etx" style="padding:8px 11px;min-height:34px;font-size:0.9rem;font-weight:700">—</div>
           </div>
         </div>
-        <div class="hint-box" style="margin-top:6px;font-size:0.76rem">
-          <strong>LoRa charge / message (SX1262, BW=125 kHz, CR=4/5, I<sub>TX</sub>=35 mA, I<sub>RX</sub>=10 mA)</strong><br>
-          SF7: 6 296 µA·s &nbsp;|&nbsp; SF9: 14 454 µA·s &nbsp;|&nbsp; SF12: 91 546 µA·s &nbsp;— includes TX + RX1 + RX2 windows
+        <div style="margin-top:8px">
+          <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:8px">
+            Reception probability per attempt (store &amp; forward, max 3 retries)
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="field" style="margin-bottom:0">
+              <label for="eb_p1">Attempt 1 (%)</label>
+              <input type="number" id="eb_p1" value="50" min="0" max="100" step="1">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="eb_p2">Attempt 2 (%)</label>
+              <input type="number" id="eb_p2" value="75" min="0" max="100" step="1">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="eb_p3">Attempt 3 (%)</label>
+              <input type="number" id="eb_p3" value="100" min="0" max="100" step="1">
+            </div>
+          </div>
+        </div>
+        <div class="hint-box" style="margin-top:8px;font-size:0.76rem">
+          <strong>E[tx] = 1 + (1−p₁) + (1−p₁)(1−p₂)</strong> &nbsp;·&nbsp; defaults → E[tx] = 1.625<br>
+          Airtime from Semtech AN1200.13, EU868, BW=125 kHz, CR=4/5, 51+13 bytes, I<sub>TX</sub>=35 mA, I<sub>RX</sub>=10 mA
         </div>
       </div>
 
@@ -961,7 +983,7 @@
                 <td id="eb_stat_idle_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
                 <td id="eb_stat_idle_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">86400 s</td>
                 <td id="eb_stat_idle_e"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
-            <tr><td>LoRa TX/RX per msg (incl. PER, UL/fix)</td>
+            <tr><td>LoRa TX/RX per msg (S&amp;F retries, UL/fix)</td>
                 <td id="eb_stat_lora_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">35 mA (TX)</td>
                 <td id="eb_stat_lora_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
                 <td id="eb_stat_lmsg"    style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
@@ -1974,7 +1996,9 @@ function ebGetConfig() {
     chem:            eb('chem').value,
     bat_mAh:         parseFloat(eb('bat_mAh').value)  || 0,
     sf:              parseInt(eb('sf').value),
-    per_pct:         parseFloat(eb('per_pct').value)  / 100,
+    p1:              parseFloat(eb('p1').value) / 100,   // P(success) attempt 1
+    p2:              parseFloat(eb('p2').value) / 100,   // P(success) attempt 2
+    p3:              parseFloat(eb('p3').value) / 100,   // P(success) attempt 3
     indoor_pct:      parseFloat(eb('indoor_pct').value) / 100,
     moving_interval_s: parseFloat(eb('moving_interval_s').value) || 300,
     steady_interval_s: parseFloat(eb('steady_interval_s').value) || 3600,
@@ -2012,9 +2036,16 @@ function ebCalc() {
   // Account for packet error rate: avg tx = 1/(1-PER) per message
   const loraCharge_uAs = LORA_CHARGE_UAS[c.sf] || LORA_CHARGE_UAS[9];
   const loraToa_s       = LORA_TOA_S[c.sf]      || LORA_TOA_S[9];
-  const lora_J_msg_nominal = loraCharge_uAs * 1e-6 * V;  // J per single attempt
-  const per_factor = c.per_pct < 1 ? 1 / (1 - c.per_pct) : 5; // cap at 5× retries
-  const lora_J_msg = lora_J_msg_nominal * per_factor;
+  const lora_J_attempt  = loraCharge_uAs * 1e-6 * V;   // J for a single TX+RX attempt
+
+  // ── Store-and-forward retransmission model (LR1110, max 3 attempts) ──
+  // E[tx] = 1 + P(fail1) + P(fail1)×P(fail2)
+  const p1  = Math.min(1, Math.max(0, c.p1));
+  const p2  = Math.min(1, Math.max(0, c.p2));
+  const q1  = 1 - p1;                  // P(fail attempt 1)
+  const q2  = 1 - p2;                  // P(fail attempt 2 | reached)
+  const etx = 1 + q1 + q1 * q2;       // expected TX per logical message
+  const lora_J_msg = lora_J_attempt * etx;
 
   // ── Location fixes per day ──
   // Moving period: movement_h hours at moving_interval_s
@@ -2147,11 +2178,15 @@ function ebCalc() {
   setCell('stat_idle_t',  '86400 s');
   setCell('stat_idle_e',  fmtJ(idleE) + '/day');
 
-  // LoRa row
+  // LoRa row — show ToA and E[tx]
   const toaMs = (loraToa_s * 1000).toFixed(1);
   setCell('stat_lora_i', '35 mA (TX)');
   setCell('stat_lora_t', `${toaMs} ms ToA`);
   setCell('stat_lmsg',   fmtJ(lora_J_msg) + ' · ' + gnss_ul + ' UL/fix');
+
+  // E[tx] result box
+  const etxEl = document.getElementById('eb_stat_etx');
+  if (etxEl) etxEl.textContent = etx.toFixed(3) + ' tx/msg';
 
   // GNSS row
   if (dev.gnssAssisted) {
@@ -2249,7 +2284,7 @@ function ebOnDeviceChange() {
 
 // Wire up all inputs
 function ebInit() {
-  ['device','chem','bat_mAh','sf','per_pct','indoor_pct',
+  ['device','chem','bat_mAh','sf','p1','p2','p3','indoor_pct',
    'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
    'wifi_en','gnss_en',
    'harvest_en','opv_area','opv_lux','opv_hours'].forEach(id => {
