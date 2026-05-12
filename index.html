@@ -2199,20 +2199,46 @@ function ebCalc() {
   const gnss_fix_s  = isAssisted ? c.ev_gnss_a_s : c.ev_gnss_auto_s;
   const gnss_fix_mA = isAssisted ? c.ev_gnss_a_mA : c.ev_gnss_auto_mA;
 
-  // ── When moving_interval < gnss_fix_time: LoRa sends faster than GNSS acquires ──
-  const fastTx = !continuous && c.moving_interval_s < gnss_fix_s;
+  // ── Position events per day (interval-based — each event fires a LoRa message) ──
+  const pos_events_moving = movement_s / Math.max(1, c.moving_interval_s);
+  const pos_events_steady = steady_s   / Math.max(60, c.steady_interval_s);
+  const pos_events_day    = pos_events_moving + pos_events_steady;
+
+  // ── Indoor/outdoor split: GNSS and WiFi are mutually exclusive per event ──
+  //   Both enabled  → split by indoor_pct
+  //   Only GNSS     → all events do GNSS  (outdoor fraction = 1)
+  //   Only WiFi     → all events do WiFi  (indoor fraction  = 1)
+  //   Neither       → no location events, heartbeats only
+  const outdoor = 1 - c.indoor_pct;
+  const indoor  = c.indoor_pct;
+  const bothLocEnabled = c.gnss_enabled && c.wifi_enabled && !!dev.wifi;
+  const gnss_frac = c.gnss_enabled
+    ? (bothLocEnabled ? outdoor : 1.0)
+    : 0.0;
+  const wifi_frac = (c.wifi_enabled && !!dev.wifi)
+    ? (bothLocEnabled ? indoor : (c.gnss_enabled ? 0.0 : 1.0))
+    : 0.0;
+
+  const gnss_events_day = pos_events_day * gnss_frac;
+  const wifi_events_day = pos_events_day * wifi_frac;
+
+  // ── GNSS fix capacity (limited by acquisition time) — for energy only ──
+  //   When interval < gnss_fix_s (fastTx), LoRa events fire faster than fixes complete.
+  //   Energy is counted at the max achievable fix rate; LoRa uses the full event rate.
+  const gnss_fix_cap_moving = continuous ? 0
+    : movement_s / Math.max(c.moving_interval_s, gnss_fix_s);
+  const gnss_fix_cap_steady = steady_s / Math.max(c.steady_interval_s, gnss_fix_s);
+  const gnss_fixes_moving = gnss_fix_cap_moving * gnss_frac;
+  const gnss_fixes_steady = gnss_fix_cap_steady * gnss_frac;
+  const gnss_fixes_day    = gnss_fixes_moving + gnss_fixes_steady;
+
+  // WiFi: scan time is short — each WiFi event produces one scan
+  const wifi_scans_day = wifi_events_day;
+
+  // fastTx warning: moving interval shorter than GNSS acquisition
+  const fastTx = !continuous && gnss_frac > 0 && c.moving_interval_s < gnss_fix_s;
   const overlapNote = document.getElementById('eb_gnss_overlap_note');
   if (overlapNote) overlapNote.style.display = fastTx ? '' : 'none';
-
-  // LoRa message rate (one per moving_interval regardless of GNSS readiness)
-  const lora_msgs_moving = movement_s / Math.max(1, c.moving_interval_s);
-  const lora_msgs_steady = steady_s   / Math.max(60, c.steady_interval_s);
-
-  // GNSS fix rate (capped by acquisition time when fastTx)
-  const gnss_fixes_moving = continuous ? 0
-    : movement_s / Math.max(c.moving_interval_s, gnss_fix_s);
-  const gnss_fixes_steady = steady_s / Math.max(c.steady_interval_s, gnss_fix_s);
-  const gnss_fixes_day    = gnss_fixes_moving + gnss_fixes_steady;
 
   const hb_per_day = 86400 / Math.max(3600, c.hb_interval_s);
 
@@ -2232,9 +2258,15 @@ function ebCalc() {
   // Batch model: 1 confirmed per batch_size msgs, rest unconfirmed
   // Confirmed  = TX+RX1+RX2 (full window) x E[tx] + extra ACK windows
   // Unconfirmed = TX only, single attempt
+  // Message count:
+  //   GNSS event  → gnss_ul messages (1 for auto, 2 for assisted/Tag XL)
+  //   WiFi event  → 1 message  (one WiFi fix per message, mutually exclusive with GNSS)
+  //   Heartbeat   → 1 message
   const batch = c.batch_size;
-  const total_loc_msgs_day = lora_msgs_moving * gnss_ul + lora_msgs_steady * gnss_ul;
-  const total_msgs_day     = total_loc_msgs_day + hb_per_day;
+  const lora_msgs_from_gnss = gnss_events_day * gnss_ul;
+  const lora_msgs_from_wifi = wifi_events_day * 1;
+  const total_loc_msgs_day  = lora_msgs_from_gnss + lora_msgs_from_wifi;
+  const total_msgs_day      = total_loc_msgs_day + hb_per_day;
   const n_confirmed   = total_msgs_day / batch;
   const n_unconfirmed = total_msgs_day * (batch - 1) / batch;
 
@@ -2249,41 +2281,32 @@ function ebCalc() {
   const E_wifi_fix  = dev.wifi ? c.ev_wifi_mA * 1e-3 * V * c.ev_wifi_s : 0;
   const E_ble_fix   = dev.has_ble ? c.ev_ble_mA * 1e-3 * V * c.ev_ble_s : 0;
 
-  const outdoor = 1 - c.indoor_pct;
-  const indoor  = c.indoor_pct;
-
   // ── GNSS energy ──
+  // gnss_fixes_day already incorporates gnss_frac (outdoor split)
   let gnss_J_day = 0;
-  let gnss_fixes_counted = gnss_fixes_day; // for count chart
   if (c.gnss_enabled) {
     if (continuous) {
-      gnss_J_day = gnss_fix_mA * 1e-3 * V * movement_s;     // ON for full movement
-      // Steady period: per-fix
-      gnss_J_day += gnss_fixes_steady * outdoor * E_gnss_fix;
-      gnss_fixes_counted = 1 + gnss_fixes_steady;           // approximate
+      // Moving: GNSS stays ON for the full movement period (gnss_frac = outdoor share)
+      gnss_J_day  = gnss_fix_mA * 1e-3 * V * movement_s * gnss_frac;
+      // Steady: per-fix (gnss_fixes_steady already includes gnss_frac)
+      gnss_J_day += gnss_fixes_steady * E_gnss_fix;
     } else {
-      gnss_J_day = gnss_fixes_day * outdoor * E_gnss_fix;
+      gnss_J_day = gnss_fixes_day * E_gnss_fix;
     }
   }
 
-  // ── WiFi energy (indoor) ──
+  // ── WiFi energy ──
+  // wifi_scans_day = wifi_events_day (already incorporates wifi_frac / indoor split)
   let wifi_J_day = 0;
-  let wifi_scans_day = 0;
-  if (c.wifi_enabled && dev.wifi && c.gnss_enabled) {
-    wifi_scans_day = gnss_fixes_day * indoor;
-    wifi_J_day     = wifi_scans_day * E_wifi_fix;
-    // Replace indoor GNSS with WiFi
-    if (c.gnss_enabled) gnss_J_day = gnss_fixes_day * outdoor * E_gnss_fix;
-  } else if (c.wifi_enabled && dev.wifi && !c.gnss_enabled) {
-    wifi_scans_day = gnss_fixes_day;
-    wifi_J_day     = wifi_scans_day * E_wifi_fix;
+  if (c.wifi_enabled && dev.wifi) {
+    wifi_J_day = wifi_scans_day * E_wifi_fix;
   }
 
-  // ── BLE energy (Tag S only, outdoor) ──
+  // ── BLE energy (concurrent with GNSS fixes, outdoor events only) ──
   let ble_J_day = 0;
   let ble_scans_day = 0;
   if (c.ble_enabled && dev.has_ble) {
-    ble_scans_day = gnss_fixes_day * outdoor;   // BLE used outdoors alongside GNSS
+    ble_scans_day = gnss_fixes_day;   // BLE runs alongside GNSS; gnss_fixes_day has gnss_frac
     ble_J_day     = ble_scans_day * E_ble_fix;
   }
 
@@ -2351,8 +2374,7 @@ function ebCalc() {
   const tdRm   = `style="text-align:right;${mono};padding:6px 10px;color:var(--muted)"`;
   const dash   = `<span style="color:var(--muted)">—</span>`;
 
-  // Each row: { label, color, I, t, ePerEvent, eventsDay, J, show }
-  // I and t are display strings; ePerEvent is display string; eventsDay is number or string
+  // Each row: { label, color, I, t, ePerEvent, eventsDay, J, hide, isHarvest }
   const mergedRows = [
     {
       label:      'Self-discharge',
@@ -2371,37 +2393,46 @@ function ebCalc() {
       J:          idle_J_day,
     },
     {
-      label:      'LoRa TX/RX (S&amp;F, UL/fix)',
+      // LoRa: show full message count and average cost per message
+      label:      'LoRa TX/RX (S&amp;F'+(gnss_ul>1?' · '+gnss_ul+' msg/GNSS fix':'')+')',
       color:      'var(--accent)',
       I:          '35 mA (TX)',
       t:          (loraToa_s*1000).toFixed(1)+' ms ToA',
-      ePerEvent:  fmtJ(lora_J_avg_msg)+'/msg',
-      eventsDay:  total_msgs_day.toFixed(1),
+      ePerEvent:  fmtJ(lora_J_avg_msg)+'/msg avg',
+      eventsDay:  total_msgs_day.toFixed(1)
+                    +' ('+lora_msgs_from_gnss.toFixed(0)+' GNSS'
+                    +(lora_msgs_from_wifi>0 ? ' + '+lora_msgs_from_wifi.toFixed(0)+' WiFi' : '')
+                    +' + '+hb_per_day.toFixed(0)+' HB)',
       J:          lora_J_day,
     },
     {
-      label:      'GNSS fix'+(continuous?' (continuous)':isAssisted?' (assisted)':' (auto)'),
+      label:      'GNSS fix'+(continuous?' (continuous)':isAssisted?' (assisted, '+gnss_ul+' UL/fix)':' (auto, 1 UL/fix)'),
       color:      '#f5a623',
       I:          gnss_fix_mA.toFixed(1)+' mA'+(continuous?' cont.':''),
       t:          continuous
                     ? (movement_s/3600).toFixed(1)+' h + '+gnss_fix_s+' s/fix'
                     : gnss_fix_s+' s',
       ePerEvent:  c.gnss_enabled ? fmtJ(E_gnss_fix)+'/fix' : 'disabled',
-      eventsDay:  c.gnss_enabled ? gnss_fixes_day.toFixed(1) : '0',
+      eventsDay:  c.gnss_enabled
+                    ? gnss_fixes_day.toFixed(1)+(fastTx?' (capped by acq.)':'')
+                        +' ('+Math.round(gnss_frac*100)+'% of events)'
+                    : '0',
       J:          gnss_J_day,
     },
     {
-      label:      'WiFi scan (indoor)',
+      label:      'WiFi scan (indoor, 1 UL/scan)',
       color:      '#b36fff',
       I:          dev.wifi ? c.ev_wifi_mA.toFixed(1)+' mA' : 'N/A',
       t:          dev.wifi ? c.ev_wifi_s+' s' : 'N/A',
       ePerEvent:  dev.wifi ? (c.wifi_enabled ? fmtJ(E_wifi_fix)+'/scan' : 'disabled') : 'no WiFi',
-      eventsDay:  dev.wifi && c.wifi_enabled ? wifi_scans_day.toFixed(1) : '0',
+      eventsDay:  dev.wifi && c.wifi_enabled
+                    ? wifi_scans_day.toFixed(1)+' ('+Math.round(wifi_frac*100)+'% of events)'
+                    : '0',
       J:          wifi_J_day,
       hide:       !dev.wifi && wifi_J_day === 0,
     },
     {
-      label:      'BLE scan (outdoor)',
+      label:      'BLE scan (outdoor, concurrent with GNSS)',
       color:      '#ff6b6b',
       I:          dev.has_ble ? c.ev_ble_mA.toFixed(1)+' mA' : 'N/A',
       t:          dev.has_ble ? c.ev_ble_s+' s' : 'N/A',
@@ -2463,11 +2494,16 @@ function ebCalc() {
   // Summary line below table
   const summaryEl = document.getElementById('eb_stat_summary');
   if (summaryEl) {
+    const gnssLabel = isAssisted ? 'assisted GNSS ('+gnss_ul+' UL/fix)' : 'auto GNSS (1 UL/fix)';
     summaryEl.innerHTML =
-      `<span style="color:var(--text)">Position fixes:</span> ${gnss_fixes_day.toFixed(1)}/day &nbsp;(${gnss_fixes_moving.toFixed(1)} moving + ${gnss_fixes_steady.toFixed(1)} steady) &nbsp;·&nbsp; `+
-      `<span style="color:var(--text)">LoRa msgs:</span> ${total_msgs_day.toFixed(1)}/day &nbsp;(${lora_msgs_moving.toFixed(0)} mvg + ${lora_msgs_steady.toFixed(0)} sted + ${hb_per_day.toFixed(0)} HB) &nbsp;·&nbsp; `+
-      `<span style="color:var(--text)">Confirmed:</span> ${n_confirmed.toFixed(1)}/day &nbsp;·&nbsp; `+
-      `<span style="color:var(--text)">E[tx]:</span> ${etx.toFixed(3)} tx/msg`;
+      `<span style="color:var(--text)">Position events:</span> ${pos_events_day.toFixed(1)}/day &nbsp;`+
+      `(${pos_events_moving.toFixed(1)} moving + ${pos_events_steady.toFixed(1)} steady) &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">GNSS fixes:</span> ${gnss_fixes_day.toFixed(1)}/day (${Math.round(gnss_frac*100)}% → ${gnssLabel}) &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">WiFi scans:</span> ${wifi_scans_day.toFixed(1)}/day (${Math.round(wifi_frac*100)}% → 1 UL/scan) &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">LoRa msgs:</span> ${total_msgs_day.toFixed(1)}/day &nbsp;`+
+      `(${lora_msgs_from_gnss.toFixed(0)} GNSS + ${lora_msgs_from_wifi.toFixed(0)} WiFi + ${hb_per_day.toFixed(0)} HB) &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">E[tx]:</span> ${etx.toFixed(3)} tx/msg &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">Confirmed:</span> ${n_confirmed.toFixed(1)}/day`;
   }
 
   ebDrawDonut(energyComponents, totalOut_J_day, harvest_J_day);
