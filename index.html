@@ -773,7 +773,7 @@
               <option value="tagl">Tag L (LiPo 850 mAh)</option>
               <option value="tagxl">Tag XL (Primary Li 3000 mAh)</option>
               <option value="lumen">Lumen (Smart Label)</option>
-              <option value="loros">LOROS Asset Tracker</option>
+              <option value="cellular">Cellular Tracker</option>
               <option value="nomadxs">Nomad XS</option>
             </select>
           </div>
@@ -1827,68 +1827,74 @@ function interpolateOPV(lux, hoursPerDay) {
 //   NomadXS EnergyAnalysis → Nomad XS
 const DEVICES = {
   lumen: {
-    label:   'Lumen (Smart Label)',
-    V:       3.7,    // V – LiPo nominal
-    I_idle_uA: 22,   // µA – incl. PCM 3 µA
-    gnssAssisted:  { I_mA: 8,    t_s: 40  },  // Assisted GNSS per fix
-    gnssAuto:      { I_mA: 15,   t_s: 150 },  // Autonomous GNSS (cold start approx)
-    wifi:          { I_mA: 12.6, t_s: 3.5 },  // WiFi scan
+    label:        'Lumen (Smart Label)',
+    V:            3.7,    // V – LiPo nominal
+    I_idle_uA:   22,    // µA – incl. PCM 3 µA
+    gnssAssisted: { I_mA: 8,    t_s: 40  },  // Assisted GNSS per fix
+    gnssAuto:     { I_mA: 15,   t_s: 150 },  // Autonomous GNSS (cold start approx)
+    wifi:         { I_mA: 12.6, t_s: 3.5 },  // WiFi scan
+    gnss_uplinks: 2,   // server-side position solving → 2 UL per fix
     defBat_mAh:  450,
     defChem:     'lipo',
     hasHarvest:  true,
     opvArea_cm2: 35,
   },
   tags: {
-    label:   'Tag S',
-    V:       3.7,    // V – LiPo nominal
-    I_idle_uA: 15,
-    gnssAssisted:  { I_mA: 8,    t_s: 40  },
-    gnssAuto:      { I_mA: 15,   t_s: 150 },
-    wifi:          { I_mA: 24,   t_s: 3.5 },
+    label:        'Tag S',
+    V:            3.7,    // V – LiPo nominal
+    I_idle_uA:   15,
+    gnssAssisted: { I_mA: 8,    t_s: 40  },
+    gnssAuto:     { I_mA: 15,   t_s: 150 },
+    wifi:         { I_mA: 24,   t_s: 3.5 },
+    gnss_uplinks: 1,   // on-chip position solving → 1 UL per fix
     defBat_mAh:  320,
     defChem:     'lipo',
     hasHarvest:  false,
   },
   tagl: {
-    label:   'Tag L',
-    V:       3.7,    // V – LiPo nominal
-    I_idle_uA: 15,
-    gnssAssisted:  { I_mA: 8,    t_s: 40  },
-    gnssAuto:      { I_mA: 15,   t_s: 150 },
-    wifi:          { I_mA: 24,   t_s: 3.5 },
+    label:        'Tag L',
+    V:            3.7,    // V – LiPo nominal
+    I_idle_uA:   15,
+    gnssAssisted: { I_mA: 8,    t_s: 40  },
+    gnssAuto:     { I_mA: 15,   t_s: 150 },
+    wifi:         { I_mA: 24,   t_s: 3.5 },
+    gnss_uplinks: 1,   // on-chip position solving → 1 UL per fix
     defBat_mAh:  850,
     defChem:     'lipo',
     hasHarvest:  false,
   },
   tagxl: {
-    label:   'Tag XL',
-    V:       3.6,    // V – Primary Li (Energizer L91) nominal
-    I_idle_uA: 15,
-    gnssAssisted:  { I_mA: 8,    t_s: 40  },
-    gnssAuto:      { I_mA: 15,   t_s: 150 },
-    wifi:          { I_mA: 24,   t_s: 3.5 },
+    label:        'Tag XL',
+    V:            3.6,    // V – Primary Li (Energizer L91) nominal
+    I_idle_uA:   15,
+    gnssAssisted: { I_mA: 8,    t_s: 40  },
+    gnssAuto:     { I_mA: 15,   t_s: 150 },
+    wifi:         { I_mA: 24,   t_s: 3.5 },
+    gnss_uplinks: 2,   // server-side position solving → 2 UL per fix
     defBat_mAh:  3000,
     defChem:     'primary',
     hasHarvest:  false,
   },
-  loros: {
-    label:   'LOROS Asset Tracker',
-    V:       3.7,
-    I_idle_uA: 30,
-    gnssAssisted:  { I_mA: 14,   t_s: 40  },
-    gnssAuto:      { I_mA: 14,   t_s: 600 },  // continuous GNSS tracking mode
-    wifi:          { I_mA: 12.6, t_s: 3.5 },
+  cellular: {
+    label:        'Cellular Tracker',
+    V:            3.7,
+    I_idle_uA:   30,
+    gnssAssisted: { I_mA: 14,   t_s: 40  },
+    gnssAuto:     { I_mA: 14,   t_s: 600 },  // continuous GNSS tracking mode
+    wifi:         { I_mA: 12.6, t_s: 3.5 },
+    gnss_uplinks: 1,   // on-chip position solving → 1 UL per fix
     defBat_mAh:  2000,
     defChem:     'lipo',
     hasHarvest:  false,
   },
   nomadxs: {
-    label:   'Nomad XS',
-    V:       3.3,    // V – regulated
-    I_idle_uA: 20,   // sleep: MCU 2µA + peripherals
-    gnssAssisted:  { I_mA: 34.5, t_s: 60  },  // ZOE-M8Q TTFF
-    gnssAuto:      { I_mA: 34.5, t_s: 180 },  // cold-start longer
-    wifi:          null,
+    label:        'Nomad XS',
+    V:            3.3,    // V – regulated
+    I_idle_uA:   20,    // sleep: MCU 2µA + peripherals
+    gnssAssisted: { I_mA: 34.5, t_s: 60  },  // ZOE-M8Q TTFF
+    gnssAuto:     { I_mA: 34.5, t_s: 180 },  // cold-start longer
+    wifi:         null,
+    gnss_uplinks: 1,
     defBat_mAh:  240,
     defChem:     'lipo',
     hasHarvest:  true,
@@ -1954,9 +1960,9 @@ function ebCalc() {
   // Events per day
   const loc_per_day = 86400 / Math.max(60, c.loc_interval_s);
   const hb_per_day  = 86400 / Math.max(3600, c.hb_interval_s);
-  const msgs_per_day = loc_per_day + hb_per_day;
-
-  const lora_J_day = msgs_per_day * lora_J_msg;
+  // Location events: gnss_uplinks UL each (2 for server-side solving, 1 for on-chip)
+  const gnss_ul = dev.gnss_uplinks || 1;
+  const lora_J_day = (loc_per_day * gnss_ul + hb_per_day) * lora_J_msg;
 
   // ── GNSS energy (J/day) ──
   let gnss_J_day = 0;
@@ -2064,7 +2070,7 @@ function ebCalc() {
   // Stats
   eb('stat_locday').textContent = loc_per_day.toFixed(1) + ' loc/day';
   eb('stat_hbday').textContent  = hb_per_day.toFixed(1)  + ' HB/day';
-  eb('stat_lmsg').textContent   = fmtJ(lora_J_msg) + '/msg';
+  eb('stat_lmsg').textContent   = fmtJ(lora_J_msg) + '/msg · ' + gnss_ul + ' UL/fix';
   eb('stat_gnssfix').textContent = gnss_J_day > 0 ? fmtJ(gnss_J_day / (loc_per_day || 1)) + '/fix' : 'disabled';
   eb('stat_wifi').textContent   = wifi_J_day > 0 ? fmtJ(wifi_J_day / (loc_per_day * (c.indoor_pct||1) || 1)) + '/scan' : 'disabled';
 
