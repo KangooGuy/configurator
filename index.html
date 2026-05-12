@@ -1082,86 +1082,47 @@
         </div>
       </div>
 
-      <!-- Two charts side by side -->
+      <!-- Energy donut -->
       <div class="card" style="padding:14px 18px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <!-- Energy donut -->
-          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="display:flex;flex-direction:row;gap:20px;align-items:flex-start">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex-shrink:0">
             <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);align-self:flex-start">Energy / day</div>
             <div id="eb_donut"></div>
-            <div style="display:grid;gap:3px;width:100%;font-size:0.72rem;color:var(--muted)">
-              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>Self-discharge</div>
-              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#888;flex-shrink:0"></span>Idle</div>
-              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#f5a623;flex-shrink:0"></span>GNSS</div>
-              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#b36fff;flex-shrink:0"></span>WiFi</div>
-              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#ff6b6b;flex-shrink:0"></span>BLE</div>
-              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>LoRa</div>
-              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#3a9fff;flex-shrink:0"></span>LTE</div>
-              <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:3px;border:1px dashed var(--accent);flex-shrink:0"></span>Harvest</div>
-            </div>
           </div>
-          <!-- Count donut -->
-          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
-            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);align-self:flex-start">Events / day</div>
-            <div id="eb_count_chart"></div>
-            <div id="eb_count_legend" style="display:grid;gap:3px;width:100%"></div>
+          <div style="display:grid;gap:3px;padding-top:22px;font-size:0.72rem;color:var(--muted)">
+            <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>Self-discharge</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#888;flex-shrink:0"></span>Idle</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#f5a623;flex-shrink:0"></span>GNSS</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#b36fff;flex-shrink:0"></span>WiFi</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#ff6b6b;flex-shrink:0"></span>BLE</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>LoRa</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#3a9fff;flex-shrink:0"></span>LTE</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:3px;border:1px dashed var(--accent);flex-shrink:0"></span>Harvest</div>
           </div>
         </div>
       </div>
 
-      <!-- Breakdown table -->
+      <!-- Merged breakdown table -->
       <div class="card">
-        <h2>Per-Component Detail</h2>
-        <table style="width:100%;border-collapse:collapse;margin-top:8px" id="eb_result_table"></table>
-      </div>
-
-      <!-- Per-event stats -->
-      <div class="card">
-        <h2>Per-Event Energies</h2>
-        <table class="ref-table" style="margin-top:8px">
-          <thead>
-            <tr>
-              <th>Component</th>
-              <th style="text-align:right">Current (mA)</th>
-              <th style="text-align:right">Duration (s)</th>
-              <th style="text-align:right">Energy / event</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>Idle (24 h baseline)</td>
-                <td id="eb_stat_idle_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_idle_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">86400 s</td>
-                <td id="eb_stat_idle_e"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
-            <tr><td>LoRa TX/RX per msg (S&amp;F retries, UL/fix)</td>
-                <td id="eb_stat_lora_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">35 mA (TX)</td>
-                <td id="eb_stat_lora_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_lmsg"    style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
-            <tr><td>GNSS fix (assisted, outdoor)</td>
-                <td id="eb_stat_gnss_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_gnss_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_gnssfix" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
-            <tr><td>WiFi scan (indoor)</td>
-                <td id="eb_stat_wifi_i"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_wifi_t"  style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_wifi"    style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
-            <tr id="eb_stat_ble_row" style="display:none"><td>BLE scan (outdoor, Tag S)</td>
-                <td id="eb_stat_ble_i"   style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_ble_t"   style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_ble"     style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:#ff6b6b">—</td></tr>
-            <tr><td>Position fixes / day (moving + steady)</td>
-                <td colspan="2" id="eb_stat_locday" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--text)">—</td>
-                <td id="eb_stat_hbday" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td></tr>
-            <tr id="eb_harvest_stats" style="display:none">
-                <td>Harvested / day</td>
-                <td colspan="2" style="text-align:right;color:var(--muted);font-size:0.8rem">OPV</td>
-                <td id="eb_stat_harvest_row" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--accent)">—</td></tr>
-            <tr id="eb_ev_lte_stat_row" style="display:none">
-                <td>LTE communication (1×/day)</td>
-                <td id="eb_stat_lte_i" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_lte_t" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">—</td>
-                <td id="eb_stat_lte_e" style="text-align:right;font-family:var(--mono);font-size:0.8rem;color:#3a9fff">—</td></tr>
-          </tbody>
-        </table>
+        <h2>Component Detail</h2>
+        <div style="overflow-x:auto;margin-top:8px">
+          <table style="width:100%;border-collapse:collapse;min-width:560px" id="eb_result_table">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border)">
+                <th style="text-align:left;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--surface-2)">Component</th>
+                <th style="text-align:right;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--surface-2)">I (mA)</th>
+                <th style="text-align:right;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--surface-2)">t (s)</th>
+                <th style="text-align:right;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--surface-2)">E / event</th>
+                <th style="text-align:right;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--surface-2)">Events/day</th>
+                <th style="text-align:right;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--surface-2)">E / day</th>
+                <th style="padding:6px 10px;width:100px;background:var(--surface-2)"></th>
+                <th style="text-align:right;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);background:var(--surface-2)">%</th>
+              </tr>
+            </thead>
+            <tbody id="eb_result_tbody"></tbody>
+          </table>
+        </div>
+        <div id="eb_stat_summary" style="margin-top:10px;font-size:0.76rem;color:var(--muted);line-height:1.9"></div>
       </div>
     </div>
   </div>
@@ -2374,7 +2335,7 @@ function ebCalc() {
   const batDisp = document.getElementById('eb_batcap_display');
   if (batDisp) batDisp.textContent = fmtJ(bat_J);
 
-  // ── Energy breakdown table + donut ──
+  // ── Merged breakdown table (Per-Component Detail + Per-Event Energies + Events/day) ──
   const energyComponents = [
     { label: 'Self-discharge',  J: selfDischarge_J_day, color: 'var(--muted)' },
     { label: 'Idle',            J: idle_J_day,          color: '#888' },
@@ -2385,94 +2346,139 @@ function ebCalc() {
     { label: 'LTE comm.',       J: lte_J_day,           color: '#3a9fff' },
   ];
   const totalForPct = totalOut_J_day || 1;
-  const tableEl = document.getElementById('eb_result_table');
-  if (tableEl) {
-    tableEl.innerHTML = energyComponents.map(comp => {
-      const pct = (comp.J / totalForPct * 100).toFixed(1);
-      const bw  = Math.min(100, comp.J / totalForPct * 100);
-      return `<tr>
-        <td style="color:var(--muted);font-size:0.8rem;padding:6px 10px">${comp.label}</td>
-        <td style="padding:6px 10px;font-family:var(--mono);font-size:0.8rem;color:${comp.color}">${fmtJ(comp.J)}/day</td>
-        <td style="padding:6px 10px;width:120px">
+  const mono   = 'font-family:var(--mono);font-size:0.8rem';
+  const tdR    = `style="text-align:right;${mono};padding:6px 10px"`;
+  const tdRm   = `style="text-align:right;${mono};padding:6px 10px;color:var(--muted)"`;
+  const dash   = `<span style="color:var(--muted)">—</span>`;
+
+  // Each row: { label, color, I, t, ePerEvent, eventsDay, J, show }
+  // I and t are display strings; ePerEvent is display string; eventsDay is number or string
+  const mergedRows = [
+    {
+      label:      'Self-discharge',
+      color:      'var(--muted)',
+      I:          dash, t: dash, ePerEvent: dash,
+      eventsDay:  dash,
+      J:          selfDischarge_J_day,
+    },
+    {
+      label:      'Idle (24 h baseline)',
+      color:      '#888',
+      I:          (c.ev_idle_uA/1000).toFixed(3)+' mA',
+      t:          '86 400 s',
+      ePerEvent:  fmtJ(idle_J_day),
+      eventsDay:  '1',
+      J:          idle_J_day,
+    },
+    {
+      label:      'LoRa TX/RX (S&amp;F, UL/fix)',
+      color:      'var(--accent)',
+      I:          '35 mA (TX)',
+      t:          (loraToa_s*1000).toFixed(1)+' ms ToA',
+      ePerEvent:  fmtJ(lora_J_avg_msg)+'/msg',
+      eventsDay:  total_msgs_day.toFixed(1),
+      J:          lora_J_day,
+    },
+    {
+      label:      'GNSS fix'+(continuous?' (continuous)':isAssisted?' (assisted)':' (auto)'),
+      color:      '#f5a623',
+      I:          gnss_fix_mA.toFixed(1)+' mA'+(continuous?' cont.':''),
+      t:          continuous
+                    ? (movement_s/3600).toFixed(1)+' h + '+gnss_fix_s+' s/fix'
+                    : gnss_fix_s+' s',
+      ePerEvent:  c.gnss_enabled ? fmtJ(E_gnss_fix)+'/fix' : 'disabled',
+      eventsDay:  c.gnss_enabled ? gnss_fixes_day.toFixed(1) : '0',
+      J:          gnss_J_day,
+    },
+    {
+      label:      'WiFi scan (indoor)',
+      color:      '#b36fff',
+      I:          dev.wifi ? c.ev_wifi_mA.toFixed(1)+' mA' : 'N/A',
+      t:          dev.wifi ? c.ev_wifi_s+' s' : 'N/A',
+      ePerEvent:  dev.wifi ? (c.wifi_enabled ? fmtJ(E_wifi_fix)+'/scan' : 'disabled') : 'no WiFi',
+      eventsDay:  dev.wifi && c.wifi_enabled ? wifi_scans_day.toFixed(1) : '0',
+      J:          wifi_J_day,
+      hide:       !dev.wifi && wifi_J_day === 0,
+    },
+    {
+      label:      'BLE scan (outdoor)',
+      color:      '#ff6b6b',
+      I:          dev.has_ble ? c.ev_ble_mA.toFixed(1)+' mA' : 'N/A',
+      t:          dev.has_ble ? c.ev_ble_s+' s' : 'N/A',
+      ePerEvent:  dev.has_ble ? (c.ble_enabled ? fmtJ(E_ble_fix)+'/scan' : 'disabled') : 'no BLE',
+      eventsDay:  dev.has_ble && c.ble_enabled ? ble_scans_day.toFixed(1) : '0',
+      J:          ble_J_day,
+      hide:       !dev.has_ble && ble_J_day === 0,
+    },
+    {
+      label:      'LTE comm. (1×/day)',
+      color:      '#3a9fff',
+      I:          dev.has_lte ? c.ev_lte_mA+' mA' : 'N/A',
+      t:          dev.has_lte ? c.ev_lte_s+' s' : 'N/A',
+      ePerEvent:  dev.has_lte ? fmtJ(lte_J_day)+'/session' : 'no LTE',
+      eventsDay:  dev.has_lte ? '1' : '0',
+      J:          lte_J_day,
+      hide:       !dev.has_lte,
+    },
+  ];
+
+  // Optional harvest row
+  if (c.harvest_enabled && harvest_J_day > 0) {
+    mergedRows.push({
+      label:     'Harvested (OPV)',
+      color:     'var(--accent)',
+      I:         dash, t: dash, ePerEvent: dash,
+      eventsDay: dash,
+      J:         -harvest_J_day,  // negative = income
+      isHarvest: true,
+    });
+  }
+
+  const tbodyEl = document.getElementById('eb_result_tbody');
+  if (tbodyEl) {
+    tbodyEl.innerHTML = mergedRows.filter(r => !r.hide).map(row => {
+      const jVal    = Math.abs(row.J);
+      const pct     = (jVal / totalForPct * 100).toFixed(1);
+      const bw      = Math.min(100, jVal / totalForPct * 100);
+      const eDay    = row.isHarvest
+        ? `<span style="color:var(--accent)">+${fmtJ(jVal)}/day</span>`
+        : `<span style="color:${row.color}">${fmtJ(jVal)}/day</span>`;
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 10px;color:var(--muted);font-size:0.8rem">${row.label}</td>
+        <td ${tdRm}>${row.I}</td>
+        <td ${tdRm}>${row.t}</td>
+        <td ${tdRm}>${row.ePerEvent}</td>
+        <td ${tdR}>${row.eventsDay}</td>
+        <td style="text-align:right;${mono};padding:6px 10px">${eDay}</td>
+        <td style="padding:6px 10px;width:90px">
           <div style="background:var(--surface-3);border-radius:4px;height:6px;overflow:hidden">
-            <div style="width:${bw}%;height:100%;background:${comp.color};border-radius:4px"></div></div></td>
-        <td style="padding:6px 10px;font-size:0.78rem;color:var(--muted)">${pct}%</td>
+            <div style="width:${bw}%;height:100%;background:${row.color};border-radius:4px"></div>
+          </div>
+        </td>
+        <td style="text-align:right;padding:6px 10px;font-size:0.78rem;color:var(--muted)">${row.isHarvest ? '' : pct+'%'}</td>
       </tr>`;
     }).join('');
   }
+
+  // Summary line below table
+  const summaryEl = document.getElementById('eb_stat_summary');
+  if (summaryEl) {
+    summaryEl.innerHTML =
+      `<span style="color:var(--text)">Position fixes:</span> ${gnss_fixes_day.toFixed(1)}/day &nbsp;(${gnss_fixes_moving.toFixed(1)} moving + ${gnss_fixes_steady.toFixed(1)} steady) &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">LoRa msgs:</span> ${total_msgs_day.toFixed(1)}/day &nbsp;(${lora_msgs_moving.toFixed(0)} mvg + ${lora_msgs_steady.toFixed(0)} sted + ${hb_per_day.toFixed(0)} HB) &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">Confirmed:</span> ${n_confirmed.toFixed(1)}/day &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">E[tx]:</span> ${etx.toFixed(3)} tx/msg`;
+  }
+
   ebDrawDonut(energyComponents, totalOut_J_day, harvest_J_day);
 
-  // ── Event count chart ──
-  const countComponents = [
-    { label: 'LoRa msgs',       n: Math.round(total_msgs_day),     color: 'var(--accent)' },
-    { label: 'Confirmed msgs',  n: Math.round(n_confirmed),        color: '#00a88a' },
-    { label: 'GNSS fixes',      n: Math.round(gnss_fixes_day),     color: '#f5a623' },
-    { label: 'WiFi scans',      n: Math.round(wifi_scans_day),     color: '#b36fff' },
-    { label: 'BLE scans',       n: Math.round(ble_scans_day),      color: '#ff6b6b' },
-    { label: 'LTE events',      n: dev.has_lte ? 1 : 0,           color: '#3a9fff' },
-    { label: 'Heartbeats',      n: Math.round(hb_per_day),        color: '#888' },
-  ].filter(x => x.n > 0);
-  ebDrawCountChart(countComponents);
+  // ── Event count chart (removed – no longer rendered) ──
 
-  // ── Stats table ──
-  const fixDayEl = document.getElementById('eb_stat_fixday');
-  if (fixDayEl) fixDayEl.textContent =
-    gnss_fixes_day.toFixed(1)+' fix/day  ('+(gnss_fixes_moving.toFixed(1))+' moving + '+(gnss_fixes_steady.toFixed(1))+' steady)';
-
-  setCell('stat_idle_i',  (c.ev_idle_uA/1000).toFixed(4)+' mA');
-  setCell('stat_idle_t',  '86400 s');
-  setCell('stat_idle_e',  fmtJ(idle_J_day)+'/day');
-
-  const toaMs = (loraToa_s*1000).toFixed(1);
-  setCell('stat_lora_i', '35 mA (TX)');
-  setCell('stat_lora_t', `${toaMs} ms ToA`);
-  setCell('stat_lmsg',   fmtJ(lora_J_avg_msg)+'/msg avg · '+gnss_ul+' UL/fix');
-
+  // ── E[tx] display (still in LoRa config card) ──
   const etxEl = document.getElementById('eb_stat_etx');
   if (etxEl) etxEl.textContent = etx.toFixed(3)+' tx/msg';
 
-  setCell('stat_gnss_i', gnss_fix_mA.toFixed(1)+' mA'+(continuous?' (cont.)':''));
-  setCell('stat_gnss_t', continuous
-    ? ((movement_s/3600).toFixed(1)+' h cont. + '+gnss_fix_s+' s/fix steady')
-    : gnss_fix_s+' s'+(dev.gnss_E_J?' (0.1 J/fix)':''));
-  setCell('stat_gnssfix', c.gnss_enabled ? fmtJ(E_gnss_fix)+'/fix' : 'disabled');
-
-  if (dev.wifi) {
-    setCell('stat_wifi_i', c.ev_wifi_mA.toFixed(1)+' mA');
-    setCell('stat_wifi_t', c.ev_wifi_s+' s');
-    setCell('stat_wifi',   c.wifi_enabled ? fmtJ(E_wifi_fix)+'/scan' : 'disabled');
-  } else {
-    setCell('stat_wifi_i','N/A'); setCell('stat_wifi_t','N/A'); setCell('stat_wifi','no WiFi');
-  }
-
-  if (dev.has_ble) {
-    setCell('stat_ble_i', c.ev_ble_mA.toFixed(1)+' mA');
-    setCell('stat_ble_t', c.ev_ble_s+' s');
-    setCell('stat_ble',   c.ble_enabled ? fmtJ(E_ble_fix)+'/scan' : 'disabled');
-  }
-  const bleStatRow = document.getElementById('eb_stat_ble_row');
-  if (bleStatRow) bleStatRow.style.display = dev.has_ble ? '' : 'none';
-
-  const lteStatRow = document.getElementById('eb_ev_lte_stat_row');
-  if (lteStatRow) {
-    lteStatRow.style.display = dev.has_lte ? '' : 'none';
-    setCell('stat_lte_i', c.ev_lte_mA+' mA');
-    setCell('stat_lte_t', c.ev_lte_s+' s');
-    setCell('stat_lte_e', dev.has_lte ? fmtJ(lte_J_day)+'/day' : 'N/A');
-  }
-
-  // Batch info
-  const batchInfoEl = document.getElementById('eb_stat_batch');
-  if (batchInfoEl) batchInfoEl.textContent =
-    n_confirmed.toFixed(1)+' confirmed + '+n_unconfirmed.toFixed(1)+' unconfirmed / day';
-
-  setCell('stat_locday', total_msgs_day.toFixed(1)+' LoRa msgs/day ('+lora_msgs_moving.toFixed(0)+' mvg + '+lora_msgs_steady.toFixed(0)+' sted + '+hb_per_day.toFixed(0)+' HB)');
-  setCell('stat_hbday',  hb_per_day.toFixed(1)+' HB/day');
-
-  const hSection = document.getElementById('eb_harvest_stats');
-  if (hSection) hSection.style.display = c.harvest_enabled ? '' : 'none';
-  const hStatEl  = document.getElementById('eb_stat_harvest_row');
-  if (hStatEl)   hStatEl.textContent  = fmtJ(harvest_J_day)+'/day';
+  // ── Harvest stat box (still in harvesting card) ──
   const hStatBox = document.getElementById('eb_stat_harvest');
   if (hStatBox)  hStatBox.textContent = fmtJ(harvest_J_day)+'/day';
 }
