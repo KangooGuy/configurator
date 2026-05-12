@@ -363,8 +363,17 @@
        onerror="this.style.display='none';document.getElementById('lf').style.display='block'">
   <span id="lf" style="display:none;font-size:1rem;font-weight:700;color:var(--accent);letter-spacing:0.05em">truvami</span>
   <div class="topbar-sep"></div>
-  <div class="topbar-sub">Downlink Configurator</div>
-  <div class="topbar-badge">Internal Tool</div>
+  <nav style="display:flex;gap:4px">
+    <button id="nav-config" onclick="selectMode('config')"
+      style="background:var(--accent-dim);border:1px solid var(--accent-glow);color:var(--accent);border-radius:6px;padding:5px 13px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent">
+      Downlink Configurator
+    </button>
+    <button id="nav-energy" onclick="selectMode('energy')"
+      style="background:transparent;border:1px solid transparent;color:var(--muted);border-radius:6px;padding:5px 13px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent">
+      ⚡ Energy Budget
+    </button>
+  </nav>
+  <div class="topbar-badge" style="margin-left:auto">Internal Tool</div>
 </div>
 
 <!-- DEVICE SELECTOR -->
@@ -741,7 +750,247 @@
   </div>
 </div>
 
+<!-- ═══════════ ENERGY BUDGET ═══════════ -->
+<div id="panel-energy" class="tab-panel">
+  <div class="page-hdr">
+    <h1>⚡ Energy Budget Calculator</h1>
+    <p>Estimate battery lifetime for Truvami trackers. All calculations use SI units (J, s, A, V). Consumption values are derived from hardware measurement simulations.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:18px">
+
+    <!-- LEFT: Configuration -->
+    <div style="display:grid;gap:14px;align-content:start">
+
+      <!-- Hardware & Battery -->
+      <div class="card">
+        <h2>Hardware &amp; Battery</h2>
+        <div class="card-sub">Select the tracker and battery configuration.</div>
+        <div class="frow" style="margin-top:10px">
+          <div class="field">
+            <label for="eb_device">Tracker type</label>
+            <select id="eb_device">
+              <option value="tags">Tag S (LiPo 320 mAh)</option>
+              <option value="tagl">Tag L (LiPo 850 mAh)</option>
+              <option value="tagxl">Tag XL (Primary Li 3000 mAh)</option>
+              <option value="lumen">Lumen (Smart Label)</option>
+              <option value="loros">LOROS Asset Tracker</option>
+              <option value="nomadxs">Nomad XS</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="eb_chem">Battery chemistry</label>
+            <select id="eb_chem">
+              <option value="lipo">LiPo (rechargeable, 3%/mo self-disch.)</option>
+              <option value="primary">Primary Li / Energizer L91 (0.5%/mo)</option>
+              <option value="lisocl2">Li-SOCl₂ industrial (1%/mo)</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field">
+            <label for="eb_bat_mAh">Battery capacity (mAh)</label>
+            <input type="number" id="eb_bat_mAh" value="450" min="1" max="100000" step="1">
+          </div>
+          <div class="field">
+            <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Equivalent (J)</label>
+            <div class="result-box" id="eb_result_batcap" style="padding:8px 11px;min-height:34px;font-size:0.82rem;line-height:1.4">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LoRa Configuration -->
+      <div class="card">
+        <h2>LoRa Configuration</h2>
+        <div class="card-sub">Spreading factor determines time-on-air. PER increases expected retransmissions (geometric model: E[tx] = 1/(1−PER)).</div>
+        <div class="frow" style="margin-top:10px">
+          <div class="field">
+            <label for="eb_sf">Spreading Factor (EU868)</label>
+            <select id="eb_sf">
+              <option value="7">SF7 — DR5 · 103 ms ToA · fastest</option>
+              <option value="9" selected>SF9 — DR3 · 329 ms ToA</option>
+              <option value="12">SF12 — DR0 · 2466 ms ToA · longest range</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="eb_per_pct">Packet Error Rate — PER (%)</label>
+            <input type="number" id="eb_per_pct" value="10" min="0" max="90" step="1">
+          </div>
+        </div>
+        <div class="hint-box" style="margin-top:6px;font-size:0.76rem">
+          <strong>LoRa charge / message (SX1262, BW=125 kHz, CR=4/5, I<sub>TX</sub>=35 mA, I<sub>RX</sub>=10 mA)</strong><br>
+          SF7: 6 296 µA·s &nbsp;|&nbsp; SF9: 14 454 µA·s &nbsp;|&nbsp; SF12: 91 546 µA·s &nbsp;— includes TX + RX1 + RX2 windows
+        </div>
+      </div>
+
+      <!-- Tracking Configuration -->
+      <div class="card">
+        <h2>Tracking &amp; Intervals</h2>
+        <div class="card-sub">Define how often the device scans and transmits per day.</div>
+        <div class="frow" style="margin-top:10px">
+          <div class="field">
+            <label for="eb_loc_interval_s">Location interval (s)</label>
+            <input type="number" id="eb_loc_interval_s" value="3600" min="60" max="86400" step="60">
+          </div>
+          <div class="field">
+            <label for="eb_hb_interval_s">Heartbeat interval (s)</label>
+            <input type="number" id="eb_hb_interval_s" value="86400" min="3600" max="604800" step="3600">
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field">
+            <label for="eb_indoor_pct">Indoor ratio (%)</label>
+            <input type="number" id="eb_indoor_pct" value="20" min="0" max="100" step="5">
+          </div>
+          <div style="padding-top:20px">
+            <div class="hint-box" style="font-size:0.74rem;padding:8px 11px">
+              Outdoor → assisted GNSS fix<br>
+              Indoor → WiFi scan (or autonomous GNSS)
+            </div>
+          </div>
+        </div>
+        <div class="checks" style="margin-top:8px">
+          <label class="check"><input type="checkbox" id="eb_gnss_en" checked> GNSS enabled</label>
+          <label class="check"><input type="checkbox" id="eb_wifi_en" checked> WiFi scan (indoor)</label>
+        </div>
+      </div>
+
+      <!-- Harvesting -->
+      <div class="card" id="eb_harvest_section">
+        <h2>Energy Harvesting (OPV)</h2>
+        <div class="card-sub">Organic Photovoltaic. Values from Dracula Technologies — PMIC efficiency η=0.90 applied.</div>
+        <label class="check" style="margin-bottom:12px;margin-top:4px;display:inline-flex">
+          <input type="checkbox" id="eb_harvest_en"> Enable harvesting
+        </label>
+        <div class="frow">
+          <div class="field">
+            <label for="eb_opv_area">OPV active area (cm²)</label>
+            <input type="number" id="eb_opv_area" value="35" min="0.1" max="500" step="0.5">
+          </div>
+          <div class="field">
+            <label for="eb_opv_lux">Illumination</label>
+            <select id="eb_opv_lux">
+              <option value="0">0 lux — dark</option>
+              <option value="50">50 lux — dim indoor</option>
+              <option value="200">200 lux — office</option>
+              <option value="500" selected>500 lux — bright indoor</option>
+              <option value="1000">1000 lux — full outdoor</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field">
+            <label for="eb_opv_hours">Light exposure (h/day)</label>
+            <input type="number" id="eb_opv_hours" value="8" min="0" max="24" step="0.5">
+          </div>
+          <div class="field">
+            <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Harvested (J/day, with η)</label>
+            <div class="result-box" id="eb_stat_harvest" style="padding:8px 11px;min-height:34px;font-size:0.82rem">—</div>
+          </div>
+        </div>
+        <table style="width:100%;font-size:0.74rem;color:var(--muted);margin-top:6px;border-collapse:collapse">
+          <thead><tr><td style="padding:4px 8px;font-weight:700;color:var(--text)">Lux</td><td style="padding:4px 8px">4 h/d</td><td style="padding:4px 8px">8 h/d</td><td style="padding:4px 8px">12 h/d</td><td style="padding:4px 8px;font-size:0.68rem">@35 cm² raw</td></tr></thead>
+          <tbody>
+            <tr><td style="padding:3px 8px;color:var(--text)">50</td><td style="padding:3px 8px">0.8 J</td><td style="padding:3px 8px">1.6 J</td><td style="padding:3px 8px">2.4 J</td><td></td></tr>
+            <tr><td style="padding:3px 8px;color:var(--text)">200</td><td style="padding:3px 8px">3.7 J</td><td style="padding:3px 8px">7.4 J</td><td style="padding:3px 8px">11.1 J</td><td></td></tr>
+            <tr><td style="padding:3px 8px;color:var(--text)">500</td><td style="padding:3px 8px">9.5 J</td><td style="padding:3px 8px">18.9 J</td><td style="padding:3px 8px">28.4 J</td><td></td></tr>
+            <tr><td style="padding:3px 8px;color:var(--text)">1000</td><td style="padding:3px 8px">18.4 J</td><td style="padding:3px 8px">36.8 J</td><td style="padding:3px 8px">55.3 J</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: Results -->
+    <div style="display:grid;gap:14px;align-content:start">
+
+      <!-- Lifetime -->
+      <div class="card" style="text-align:center;padding:28px 20px">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">Estimated Battery Life</div>
+        <div id="eb_result_life" style="font-size:2.4rem;font-weight:800;font-family:var(--mono);color:var(--accent);letter-spacing:-0.02em;line-height:1.1;margin-bottom:10px">—</div>
+        <div id="eb_result_harvest" style="font-size:0.78rem;color:var(--muted);margin-bottom:5px"></div>
+        <div id="eb_result_total" style="font-size:0.75rem;font-family:var(--mono);color:var(--muted)"></div>
+      </div>
+
+      <!-- Donut chart -->
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:12px">
+        <h2 style="align-self:flex-start">Energy Breakdown / Day</h2>
+        <div id="eb_donut"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;width:100%;font-size:0.77rem;color:var(--muted)">
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>Self-discharge</div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#3a9fff;flex-shrink:0"></span>Idle</div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#f5a623;flex-shrink:0"></span>GNSS fixes</div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#b36fff;flex-shrink:0"></span>WiFi scans</div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>LoRa TX/RX</div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;border:2px dashed var(--accent);flex-shrink:0"></span>Harvest (IN)</div>
+        </div>
+      </div>
+
+      <!-- Breakdown table -->
+      <div class="card">
+        <h2>Per-Component Detail</h2>
+        <table style="width:100%;border-collapse:collapse;margin-top:8px" id="eb_result_table"></table>
+        <div class="div" style="margin:10px 0 8px"></div>
+        <div id="eb_result_batcap" style="font-size:0.77rem;font-family:var(--mono);color:var(--muted)"></div>
+      </div>
+
+      <!-- Per-event stats -->
+      <div class="card">
+        <h2>Per-Event Energies</h2>
+        <table class="ref-table" style="margin-top:8px">
+          <tbody>
+            <tr><td>Location events / day</td><td id="eb_stat_locday" style="color:var(--text);font-family:var(--mono);font-size:0.8rem">—</td></tr>
+            <tr><td>Heartbeat / day</td><td id="eb_stat_hbday" style="color:var(--text);font-family:var(--mono);font-size:0.8rem">—</td></tr>
+            <tr><td>LoRa energy / msg (incl. PER)</td><td id="eb_stat_lmsg" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
+            <tr><td>GNSS energy / fix</td><td id="eb_stat_gnssfix" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
+            <tr><td>WiFi energy / scan</td><td id="eb_stat_wifi" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
+            <tr id="eb_harvest_stats" style="display:none"><td>Harvested / day</td><td id="eb_stat_harvest_row" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+/* ══════════════════════════════════════════
+   TOP-LEVEL MODE SWITCHER
+══════════════════════════════════════════ */
+function selectMode(mode) {
+  const isEnergy = mode === 'energy';
+
+  // Toggle nav button styles
+  const navConfig = document.getElementById('nav-config');
+  const navEnergy = document.getElementById('nav-energy');
+  if (navConfig) {
+    navConfig.style.background     = isEnergy ? 'transparent'          : 'var(--accent-dim)';
+    navConfig.style.border         = isEnergy ? '1px solid transparent': '1px solid var(--accent-glow)';
+    navConfig.style.color          = isEnergy ? 'var(--muted)'         : 'var(--accent)';
+  }
+  if (navEnergy) {
+    navEnergy.style.background     = isEnergy ? 'var(--accent-dim)'    : 'transparent';
+    navEnergy.style.border         = isEnergy ? '1px solid var(--accent-glow)' : '1px solid transparent';
+    navEnergy.style.color          = isEnergy ? 'var(--accent)'        : 'var(--muted)';
+  }
+
+  // Show/hide device selector bar
+  const devBar = document.querySelector('.device-selector-wrap');
+  if (devBar) devBar.style.display = isEnergy ? 'none' : '';
+
+  // Show energy panel or restore downlink panel
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  if (isEnergy) {
+    const ep = document.getElementById('panel-energy');
+    if (ep) ep.classList.add('active');
+  } else {
+    // Restore the currently selected device panel
+    const sel = document.getElementById('deviceSelect');
+    const id  = sel ? sel.value : 'tagsl';
+    const panel = document.getElementById('panel-' + id);
+    if (panel) panel.classList.add('active');
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 /* ══════════════════════════════════════════
    DEVICE SELECTOR
 ══════════════════════════════════════════ */
@@ -1521,6 +1770,392 @@ function dismissInstallBanner() { const b = document.getElementById('install-ban
 
 /* Initialize device selector protocol pill on load */
 selectDevice('tagsl');
+
+/* ════════════════════════════════════════
+   ENERGY BUDGET CALCULATOR
+   All quantities in SI units: J, s, A, V, W
+════════════════════════════════════════ */
+(function() {
+
+// ── Hardware profiles (from measurement spreadsheets) ──
+// LoRa charge per message: TX + RX1 + RX2 windows (µA·s)
+// Source: Nomad XS EnergyAnalysis sheet, SX1262, BW=125kHz, CR=4/5, preamble=8
+// I_TX=35mA, I_RX=10mA. Energy = charge_uAs * 1e-6 * V_bat
+const LORA_CHARGE_UAS = { 7: 6296.32, 9: 14453.76, 12: 91545.6 };
+
+// OPV harvest table (J per day) – raw OPV output before PMIC losses
+// Source: Energy_budget_ Sheet2, OPV area = 35 cm², excludes storage losses
+// Format: lux → [J/day @4h, J/day @8h, J/day @12h]
+const OPV_TABLE = {
+    0:    [0,    0,    0   ],
+    50:   [0.8,  1.6,  2.4 ],
+    200:  [3.7,  7.4,  11.1],
+    500:  [9.5,  18.9, 28.4],
+    1000: [18.4, 36.8, 55.3],
+};
+const OPV_PMIC_EFF = 0.90; // PMIC/charger efficiency
+
+function interpolateOPV(lux, hoursPerDay) {
+    // lux clamped 0..1000, hours 0..24
+    lux = Math.max(0, Math.min(1000, lux));
+    hoursPerDay = Math.max(0, Math.min(24, hoursPerDay));
+    const luxKeys = [0, 50, 200, 500, 1000];
+    // Find bracket
+    let lo = 0, hi = 0;
+    for (let i = 0; i < luxKeys.length - 1; i++) {
+        if (lux >= luxKeys[i] && lux <= luxKeys[i+1]) { lo = luxKeys[i]; hi = luxKeys[i+1]; break; }
+    }
+    if (lux >= 1000) { lo = 500; hi = 1000; }
+    // Interpolate at 4h and 8h for hours interpolation
+    const t = lo === hi ? 1 : (lux - lo) / (hi - lo);
+    const at4h = OPV_TABLE[lo][0] + t * (OPV_TABLE[hi][0] - OPV_TABLE[lo][0]);
+    const at8h = OPV_TABLE[lo][1] + t * (OPV_TABLE[hi][1] - OPV_TABLE[lo][1]);
+    const at12h= OPV_TABLE[lo][2] + t * (OPV_TABLE[hi][2] - OPV_TABLE[lo][2]);
+    // Interpolate by hours
+    let rawJ;
+    if (hoursPerDay <= 4)       rawJ = at4h * hoursPerDay / 4;
+    else if (hoursPerDay <= 8)  rawJ = at4h + (at8h - at4h) * (hoursPerDay - 4) / 4;
+    else                        rawJ = at8h + (at12h - at8h) * (hoursPerDay - 8) / 4;
+    return rawJ; // J/day for 35 cm²
+}
+
+// Device hardware profiles
+// Source measurements:
+//   LUMEN sheet  → Lumen (Smart Label)
+//   LOROS sheet  → LOROS asset tracker
+//   Holcim sheet → Tag S / Tag L
+//   NomadXS EnergyAnalysis → Nomad XS
+const DEVICES = {
+  lumen: {
+    label:   'Lumen (Smart Label)',
+    V:       3.7,    // V – LiPo nominal
+    I_idle_uA: 22,   // µA – incl. PCM 3 µA
+    gnssAssisted:  { I_mA: 8,    t_s: 40  },  // Assisted GNSS per fix
+    gnssAuto:      { I_mA: 15,   t_s: 150 },  // Autonomous GNSS (cold start approx)
+    wifi:          { I_mA: 12.6, t_s: 3.5 },  // WiFi scan
+    defBat_mAh:  450,
+    defChem:     'lipo',
+    hasHarvest:  true,
+    opvArea_cm2: 35,
+  },
+  tags: {
+    label:   'Tag S',
+    V:       3.7,    // V – LiPo nominal
+    I_idle_uA: 15,
+    gnssAssisted:  { I_mA: 8,    t_s: 40  },
+    gnssAuto:      { I_mA: 15,   t_s: 150 },
+    wifi:          { I_mA: 24,   t_s: 3.5 },
+    defBat_mAh:  320,
+    defChem:     'lipo',
+    hasHarvest:  false,
+  },
+  tagl: {
+    label:   'Tag L',
+    V:       3.7,    // V – LiPo nominal
+    I_idle_uA: 15,
+    gnssAssisted:  { I_mA: 8,    t_s: 40  },
+    gnssAuto:      { I_mA: 15,   t_s: 150 },
+    wifi:          { I_mA: 24,   t_s: 3.5 },
+    defBat_mAh:  850,
+    defChem:     'lipo',
+    hasHarvest:  false,
+  },
+  tagxl: {
+    label:   'Tag XL',
+    V:       3.6,    // V – Primary Li (Energizer L91) nominal
+    I_idle_uA: 15,
+    gnssAssisted:  { I_mA: 8,    t_s: 40  },
+    gnssAuto:      { I_mA: 15,   t_s: 150 },
+    wifi:          { I_mA: 24,   t_s: 3.5 },
+    defBat_mAh:  3000,
+    defChem:     'primary',
+    hasHarvest:  false,
+  },
+  loros: {
+    label:   'LOROS Asset Tracker',
+    V:       3.7,
+    I_idle_uA: 30,
+    gnssAssisted:  { I_mA: 14,   t_s: 40  },
+    gnssAuto:      { I_mA: 14,   t_s: 600 },  // continuous GNSS tracking mode
+    wifi:          { I_mA: 12.6, t_s: 3.5 },
+    defBat_mAh:  2000,
+    defChem:     'lipo',
+    hasHarvest:  false,
+  },
+  nomadxs: {
+    label:   'Nomad XS',
+    V:       3.3,    // V – regulated
+    I_idle_uA: 20,   // sleep: MCU 2µA + peripherals
+    gnssAssisted:  { I_mA: 34.5, t_s: 60  },  // ZOE-M8Q TTFF
+    gnssAuto:      { I_mA: 34.5, t_s: 180 },  // cold-start longer
+    wifi:          null,
+    defBat_mAh:  240,
+    defChem:     'lipo',
+    hasHarvest:  true,
+    opvArea_cm2: 1.84, // KXOB25 (2 cells): 1.84 cm²
+  },
+};
+
+// Battery chemistry presets
+// self_discharge_pct_month: % of total capacity lost per month to self-discharge
+const CHEMISTRIES = {
+  lipo:    { label: 'LiPo (rechargeable)',         V_nom: 3.7, self_discharge_pct_month: 3.0 },
+  primary: { label: 'Primary Li (Energizer L91)',   V_nom: 3.6, self_discharge_pct_month: 0.5 },
+  lisocl2: { label: 'Li-SOCl2 (industrial)',        V_nom: 3.6, self_discharge_pct_month: 1.0 },
+};
+
+function eb(id) { return document.getElementById('eb_' + id); }
+
+function ebGetConfig() {
+  return {
+    device:          eb('device').value,
+    chem:            eb('chem').value,
+    bat_mAh:         parseFloat(eb('bat_mAh').value)  || 0,
+    sf:              parseInt(eb('sf').value),
+    per_pct:         parseFloat(eb('per_pct').value)  / 100,
+    indoor_pct:      parseFloat(eb('indoor_pct').value) / 100,
+    loc_interval_s:  parseFloat(eb('loc_interval_s').value) || 3600,
+    hb_interval_s:   parseFloat(eb('hb_interval_s').value)  || 86400,
+    wifi_enabled:    eb('wifi_en').checked,
+    gnss_enabled:    eb('gnss_en').checked,
+    harvest_enabled: eb('harvest_en').checked,
+    opv_area_cm2:    parseFloat(eb('opv_area').value)         || 0,
+    opv_lux:         parseInt(eb('opv_lux').value, 10)        || 0,
+    opv_hours:       parseFloat(eb('opv_hours').value)        || 0,
+  };
+}
+
+function ebCalc() {
+  const c = ebGetConfig();
+  const dev = DEVICES[c.device];
+  if (!dev) return;
+  const chem = CHEMISTRIES[c.chem] || CHEMISTRIES.lipo;
+
+  // Use the device's operating voltage (not chemistry nominal)
+  const V = dev.V;
+
+  // ── Battery energy (J) ──
+  // E = capacity_mAh × V × 3.6  (mAh → As: ×3.6s/h)
+  const bat_J = c.bat_mAh * V * 3.6;  // J
+
+  // ── Self-discharge (J/day) ──
+  const selfDischarge_J_day = bat_J * (chem.self_discharge_pct_month / 100) / 30.44;
+
+  // ── Idle energy (J/day) ──
+  const idle_J_day = dev.I_idle_uA * 1e-6 * V * 86400;  // J/day
+
+  // ── LoRa energy per message (J) ──
+  // Account for packet error rate: avg tx = 1/(1-PER) per message
+  const loraCharge_uAs = LORA_CHARGE_UAS[c.sf] || LORA_CHARGE_UAS[9];
+  const lora_J_msg_nominal = loraCharge_uAs * 1e-6 * V;  // J per single attempt
+  const per_factor = c.per_pct < 1 ? 1 / (1 - c.per_pct) : 5; // cap at 5× retries
+  const lora_J_msg = lora_J_msg_nominal * per_factor;
+
+  // Events per day
+  const loc_per_day = 86400 / Math.max(60, c.loc_interval_s);
+  const hb_per_day  = 86400 / Math.max(3600, c.hb_interval_s);
+  const msgs_per_day = loc_per_day + hb_per_day;
+
+  const lora_J_day = msgs_per_day * lora_J_msg;
+
+  // ── GNSS energy (J/day) ──
+  let gnss_J_day = 0;
+  if (c.gnss_enabled && dev.gnssAssisted) {
+    const outdoor_ratio = 1 - c.indoor_pct;
+    const E_assisted   = dev.gnssAssisted.I_mA * 1e-3 * V * dev.gnssAssisted.t_s;  // J per fix
+    const E_autonomous = dev.gnssAuto.I_mA    * 1e-3 * V * dev.gnssAuto.t_s;       // J per fix
+    gnss_J_day = loc_per_day * (outdoor_ratio * E_assisted + c.indoor_pct * E_autonomous);
+  }
+
+  // ── WiFi energy (J/day) ──
+  let wifi_J_day = 0;
+  if (c.wifi_enabled && c.gnss_enabled && dev.wifi) {
+    // Indoor positions use WiFi instead of GNSS
+    const E_wifi = dev.wifi.I_mA * 1e-3 * V * dev.wifi.t_s;  // J per scan
+    // When GNSS is enabled, indoor uses WiFi (replace autonomous GNSS with WiFi for indoor)
+    const E_gnssAuto = dev.gnssAuto.I_mA * 1e-3 * V * dev.gnssAuto.t_s;
+    // Replace autonomous component with WiFi
+    gnss_J_day = loc_per_day * ((1-c.indoor_pct) * (dev.gnssAssisted.I_mA * 1e-3 * V * dev.gnssAssisted.t_s));
+    wifi_J_day = loc_per_day * c.indoor_pct * E_wifi;
+  } else if (c.wifi_enabled && !c.gnss_enabled && dev.wifi) {
+    // WiFi only positioning
+    const E_wifi = dev.wifi.I_mA * 1e-3 * V * dev.wifi.t_s;
+    wifi_J_day = loc_per_day * E_wifi;
+  }
+
+  // ── Harvesting energy (J/day) ──
+  let harvest_J_day = 0;
+  if (c.harvest_enabled && dev.hasHarvest) {
+    const area = c.opv_area_cm2 || dev.opvArea_cm2 || 35;
+    const rawJ_35cm2 = interpolateOPV(c.opv_lux, c.opv_hours);
+    const rawJ = rawJ_35cm2 * (area / 35);
+    harvest_J_day = rawJ * OPV_PMIC_EFF;
+  }
+
+  // ── Totals ──
+  const totalOut_J_day = selfDischarge_J_day + idle_J_day + lora_J_day + gnss_J_day + wifi_J_day;
+  const netOut_J_day   = totalOut_J_day - harvest_J_day;
+
+  let life_days, infinite = false;
+  if (netOut_J_day <= 0) {
+    infinite = true; life_days = Infinity;
+  } else {
+    life_days = bat_J / netOut_J_day;
+  }
+
+  // ── Render results ──
+  const fmt = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '∞';
+  const fmtJ = j => j < 1e-3 ? (j*1e6).toFixed(1)+' µJ' : j < 1 ? (j*1e3).toFixed(2)+' mJ' : j.toFixed(3)+' J';
+
+  // Lifetime display
+  let lifeStr;
+  if (infinite) {
+    lifeStr = '∞ (self-sustaining)';
+  } else if (life_days > 365*10) {
+    lifeStr = '> 10 years';
+  } else {
+    const years  = Math.floor(life_days / 365.25);
+    const months = Math.floor((life_days % 365.25) / 30.44);
+    const days   = Math.floor(life_days % 30.44);
+    lifeStr = '';
+    if (years)  lifeStr += years  + ' yr ';
+    if (months) lifeStr += months + ' mo ';
+    lifeStr += days + ' d';
+    lifeStr = lifeStr.trim() || '<1 day';
+  }
+
+  eb('result_life').textContent = lifeStr;
+  eb('result_life').style.color = infinite ? 'var(--accent)' : life_days < 30 ? 'var(--danger)' : life_days < 180 ? 'var(--warn)' : 'var(--accent)';
+
+  // Energy summary
+  const components = [
+    { label: 'Self-discharge',  J: selfDischarge_J_day, color: 'var(--muted)' },
+    { label: 'Idle',            J: idle_J_day,          color: '#3a9fff' },
+    { label: 'GNSS fixes',      J: gnss_J_day,          color: '#f5a623' },
+    { label: 'WiFi scans',      J: wifi_J_day,          color: '#b36fff' },
+    { label: 'LoRa TX/RX',      J: lora_J_day,          color: 'var(--accent)' },
+  ];
+
+  const totalForPct = totalOut_J_day || 1;
+
+  eb('result_table').innerHTML = components.map(comp => {
+    const pct = (comp.J / totalForPct * 100).toFixed(1);
+    const barW = Math.min(100, comp.J / totalForPct * 100);
+    return `<tr>
+      <td style="color:var(--muted);font-size:0.8rem;padding:6px 10px">${comp.label}</td>
+      <td style="padding:6px 10px;font-family:var(--mono);font-size:0.8rem;color:${comp.color}">${fmtJ(comp.J)}/day</td>
+      <td style="padding:6px 10px;width:120px">
+        <div style="background:var(--surface-3);border-radius:4px;height:6px;overflow:hidden">
+          <div style="width:${barW}%;height:100%;background:${comp.color};border-radius:4px"></div>
+        </div>
+      </td>
+      <td style="padding:6px 10px;font-size:0.78rem;color:var(--muted)">${pct}%</td>
+    </tr>`;
+  }).join('');
+
+  eb('result_harvest').textContent = harvest_J_day > 0
+    ? `Harvested: ${fmtJ(harvest_J_day)}/day`
+    : 'No harvesting';
+  eb('result_harvest').style.color = harvest_J_day > 0 ? 'var(--accent)' : 'var(--muted)';
+
+  eb('result_total').textContent = `Total OUT: ${fmtJ(totalOut_J_day)}/day   NET: ${fmtJ(Math.max(0, netOut_J_day))}/day`;
+  eb('result_batcap').textContent = `Battery: ${fmtJ(bat_J)} (${c.bat_mAh} mAh @ ${V} V)`;
+
+  // Stats
+  eb('stat_locday').textContent = loc_per_day.toFixed(1) + ' loc/day';
+  eb('stat_hbday').textContent  = hb_per_day.toFixed(1)  + ' HB/day';
+  eb('stat_lmsg').textContent   = fmtJ(lora_J_msg) + '/msg';
+  eb('stat_gnssfix').textContent = gnss_J_day > 0 ? fmtJ(gnss_J_day / (loc_per_day || 1)) + '/fix' : 'disabled';
+  eb('stat_wifi').textContent   = wifi_J_day > 0 ? fmtJ(wifi_J_day / (loc_per_day * (c.indoor_pct||1) || 1)) + '/scan' : 'disabled';
+
+  // Show/hide harvest stats
+  eb('harvest_stats').style.display = c.harvest_enabled ? '' : 'none';
+  const hStatEl = document.getElementById('eb_stat_harvest_row');
+  if (hStatEl) hStatEl.textContent = fmtJ(harvest_J_day) + '/day';
+  const hStatBox = document.getElementById('eb_stat_harvest');
+  if (hStatBox) hStatBox.textContent = fmtJ(harvest_J_day) + '/day';
+
+  // Donut chart (SVG)
+  ebDrawDonut(components, totalOut_J_day, harvest_J_day);
+}
+
+function ebDrawDonut(components, total, harvest) {
+  const R = 70, cx = 90, cy = 90, stroke = 26;
+  const circ = 2 * Math.PI * R;
+  const totalForDraw = total || 1;
+  let offset = 0;
+  let paths = '';
+  for (const c of components) {
+    const frac = c.J / totalForDraw;
+    const len  = frac * circ;
+    if (len < 0.5) { offset += len; continue; }
+    paths += `<circle cx="${cx}" cy="${cy}" r="${R}"
+      fill="none"
+      stroke="${c.color}"
+      stroke-width="${stroke}"
+      stroke-dasharray="${len.toFixed(2)} ${(circ - len).toFixed(2)}"
+      stroke-dashoffset="${(-offset + circ/4).toFixed(2)}"
+      opacity="0.85"/>`;
+    offset += len;
+  }
+  // Harvest overlay (dashed ring outside)
+  let harvestPath = '';
+  if (harvest > 0 && total > 0) {
+    const frac = Math.min(1, harvest / total);
+    const len  = frac * circ;
+    harvestPath = `<circle cx="${cx}" cy="${cy}" r="${R + stroke/2 + 5}"
+      fill="none" stroke="var(--accent)" stroke-width="4"
+      stroke-dasharray="${len.toFixed(2)} ${(circ - len).toFixed(2)}"
+      stroke-dashoffset="${(circ/4).toFixed(2)}"
+      opacity="0.6" stroke-linecap="round"/>`;
+  }
+  eb('donut').innerHTML = `<svg viewBox="0 0 180 180" width="180" height="180" style="display:block">
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="${stroke}"/>
+    ${paths}
+    ${harvestPath}
+    <text x="${cx}" y="${cy - 6}" text-anchor="middle" fill="var(--text)" font-size="12" font-family="Inter,sans-serif" font-weight="700">OUT/day</text>
+    <text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="var(--accent)" font-size="11" font-family="monospace" id="eb_donut_total"></text>
+  </svg>`;
+}
+
+function ebOnDeviceChange() {
+  const devId = eb('device').value;
+  const dev   = DEVICES[devId];
+  if (!dev) return;
+  eb('bat_mAh').value   = dev.defBat_mAh;
+  eb('chem').value      = dev.defChem;
+  eb('wifi_en').checked = !!dev.wifi;
+  eb('gnss_en').checked = true;
+  const hSection = eb('harvest_section');
+  if (hSection) hSection.style.display = dev.hasHarvest ? '' : 'none';
+  if (dev.hasHarvest && dev.opvArea_cm2) {
+    eb('opv_area').value = dev.opvArea_cm2;
+  }
+  ebCalc();
+}
+
+// Wire up all inputs
+function ebInit() {
+  ['device','chem','bat_mAh','sf','per_pct','indoor_pct',
+   'loc_interval_s','hb_interval_s','wifi_en','gnss_en',
+   'harvest_en','opv_area','opv_lux','opv_hours'].forEach(id => {
+    const el = eb(id);
+    if (!el) return;
+    el.addEventListener('input',  ebCalc);
+    el.addEventListener('change', () => { if (id === 'device') ebOnDeviceChange(); else ebCalc(); });
+  });
+  ebOnDeviceChange();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('eb_device')) ebInit();
+});
+// Also init immediately in case DOM is already ready
+if (document.readyState !== 'loading') {
+  setTimeout(() => { if (document.getElementById('eb_device')) ebInit(); }, 50);
+}
+
+})();
 </script>
 </body>
 </html>
