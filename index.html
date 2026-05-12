@@ -2249,32 +2249,27 @@ function ebCalc() {
   const loraToa_s       = LORA_TOA_S[c.sf]           || LORA_TOA_S[9];
   const lora_J_attempt  = loraCharge_uAs * 1e-6 * V;
 
-  // S&F retry model
+  // S&F retry model: every message is retried until received (max 3 attempts)
+  // E[tx] = expected transmissions per logical message
   const p1  = Math.min(1, Math.max(0, c.p1));
   const p2  = Math.min(1, Math.max(0, c.p2));
   const q1  = 1 - p1, q2 = 1 - p2;
   const etx = 1 + q1 + q1 * q2;
 
-  // Batch model: 1 confirmed per batch_size msgs, rest unconfirmed
-  // Confirmed  = TX+RX1+RX2 (full window) x E[tx] + extra ACK windows
-  // Unconfirmed = TX only, single attempt
   // Message count:
-  //   GNSS event  → gnss_ul messages (1 for auto, 2 for assisted/Tag XL)
-  //   WiFi event  → 1 message  (one WiFi fix per message, mutually exclusive with GNSS)
-  //   Heartbeat   → 1 message
-  const batch = c.batch_size;
+  //   GNSS event  → gnss_ul logical messages (1 for auto, 2 for assisted/Tag XL)
+  //   WiFi event  → 1 logical message  (mutually exclusive with GNSS)
+  //   Heartbeat   → 1 logical message
   const lora_msgs_from_gnss = gnss_events_day * gnss_ul;
   const lora_msgs_from_wifi = wifi_events_day * 1;
   const total_loc_msgs_day  = lora_msgs_from_gnss + lora_msgs_from_wifi;
   const total_msgs_day      = total_loc_msgs_day + hb_per_day;
-  const n_confirmed   = total_msgs_day / batch;
-  const n_unconfirmed = total_msgs_day * (batch - 1) / batch;
 
-  const lora_J_conf    = lora_J_attempt * etx
-                       + LORA_CONFIRMED_EXTRA_UAS * 1e-6 * V;  // extra DL windows
-  const lora_J_unconf  = loraTxOnly_uAs * 1e-6 * V;             // TX only
-  const lora_J_day     = n_confirmed * lora_J_conf + n_unconfirmed * lora_J_unconf;
-  const lora_J_avg_msg = total_msgs_day > 0 ? lora_J_day / total_msgs_day : lora_J_conf;
+  // S&F: each logical message generates E[tx] actual transmissions on average
+  // Energy per TX attempt = TX + RX1 + RX2 windows (loraCharge_uAs)
+  const actual_tx_day  = total_msgs_day * etx;
+  const lora_J_day     = actual_tx_day * lora_J_attempt;
+  const lora_J_avg_msg = lora_J_attempt * etx;   // energy per logical message
 
   // ── Per-fix energies ──
   const E_gnss_fix  = dev.gnss_E_J || (gnss_fix_mA * 1e-3 * V * gnss_fix_s);
@@ -2393,16 +2388,17 @@ function ebCalc() {
       J:          idle_J_day,
     },
     {
-      // LoRa: show full message count and average cost per message
+      // LoRa: logical messages × E[tx] = actual TX attempts on the wire
       label:      'LoRa TX/RX (S&amp;F'+(gnss_ul>1?' · '+gnss_ul+' msg/GNSS fix':'')+')',
       color:      'var(--accent)',
       I:          '35 mA (TX)',
       t:          (loraToa_s*1000).toFixed(1)+' ms ToA',
-      ePerEvent:  fmtJ(lora_J_avg_msg)+'/msg avg',
-      eventsDay:  total_msgs_day.toFixed(1)
-                    +' ('+lora_msgs_from_gnss.toFixed(0)+' GNSS'
-                    +(lora_msgs_from_wifi>0 ? ' + '+lora_msgs_from_wifi.toFixed(0)+' WiFi' : '')
-                    +' + '+hb_per_day.toFixed(0)+' HB)',
+      ePerEvent:  fmtJ(lora_J_avg_msg)+'/msg avg (×'+etx.toFixed(2)+' E[tx])',
+      eventsDay:  actual_tx_day.toFixed(1)+' TX'
+                    +' ('+total_msgs_day.toFixed(1)+' logical × '+etx.toFixed(2)+' E[tx])'
+                    +' — '+lora_msgs_from_gnss.toFixed(0)+' GNSS'
+                    +(lora_msgs_from_wifi>0 ? '+'+lora_msgs_from_wifi.toFixed(0)+' WiFi' : '')
+                    +'+'+hb_per_day.toFixed(0)+' HB',
       J:          lora_J_day,
     },
     {
@@ -2494,16 +2490,16 @@ function ebCalc() {
   // Summary line below table
   const summaryEl = document.getElementById('eb_stat_summary');
   if (summaryEl) {
-    const gnssLabel = isAssisted ? 'assisted GNSS ('+gnss_ul+' UL/fix)' : 'auto GNSS (1 UL/fix)';
+    const gnssLabel = isAssisted ? 'assisted ('+gnss_ul+' UL/fix)' : 'auto (1 UL/fix)';
     summaryEl.innerHTML =
-      `<span style="color:var(--text)">Position events:</span> ${pos_events_day.toFixed(1)}/day &nbsp;`+
+      `<span style="color:var(--text)">Position events:</span> ${pos_events_day.toFixed(1)}/day `+
       `(${pos_events_moving.toFixed(1)} moving + ${pos_events_steady.toFixed(1)} steady) &nbsp;·&nbsp; `+
       `<span style="color:var(--text)">GNSS fixes:</span> ${gnss_fixes_day.toFixed(1)}/day (${Math.round(gnss_frac*100)}% → ${gnssLabel}) &nbsp;·&nbsp; `+
       `<span style="color:var(--text)">WiFi scans:</span> ${wifi_scans_day.toFixed(1)}/day (${Math.round(wifi_frac*100)}% → 1 UL/scan) &nbsp;·&nbsp; `+
-      `<span style="color:var(--text)">LoRa msgs:</span> ${total_msgs_day.toFixed(1)}/day &nbsp;`+
+      `<span style="color:var(--text)">Logical msgs:</span> ${total_msgs_day.toFixed(1)}/day `+
       `(${lora_msgs_from_gnss.toFixed(0)} GNSS + ${lora_msgs_from_wifi.toFixed(0)} WiFi + ${hb_per_day.toFixed(0)} HB) &nbsp;·&nbsp; `+
-      `<span style="color:var(--text)">E[tx]:</span> ${etx.toFixed(3)} tx/msg &nbsp;·&nbsp; `+
-      `<span style="color:var(--text)">Confirmed:</span> ${n_confirmed.toFixed(1)}/day`;
+      `<span style="color:var(--text)">E[tx]:</span> ${etx.toFixed(3)} &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">Actual TX:</span> ${actual_tx_day.toFixed(1)}/day`;
   }
 
   ebDrawDonut(energyComponents, totalOut_J_day, harvest_J_day);
