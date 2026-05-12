@@ -2683,7 +2683,7 @@ if (document.readyState !== 'loading') {
   setTimeout(() => { if (document.getElementById('eb_device')) ebInit(); }, 50);
 }
 
-function ebExportPDF(btn) {
+window.ebExportPDF = function ebExportPDF(btn) {
   const jspdf = window.jspdf;
   if (!jspdf || !jspdf.jsPDF) { alert('PDF library not loaded yet — please try again.'); return; }
   const { jsPDF } = jspdf;
