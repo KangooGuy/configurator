@@ -825,11 +825,21 @@
       <!-- Tracking Configuration -->
       <div class="card">
         <h2>Tracking &amp; Intervals</h2>
-        <div class="card-sub">Define how often the device scans and transmits per day.</div>
+        <div class="card-sub">Moving and steady intervals combine with movement duration to derive total position fixes per day.</div>
         <div class="frow" style="margin-top:10px">
           <div class="field">
-            <label for="eb_loc_interval_s">Location interval (s)</label>
-            <input type="number" id="eb_loc_interval_s" value="3600" min="60" max="86400" step="60">
+            <label for="eb_moving_interval_s">Moving interval (s)</label>
+            <input type="number" id="eb_moving_interval_s" value="300" min="60" max="86400" step="60">
+          </div>
+          <div class="field">
+            <label for="eb_steady_interval_s">Steady interval (s)</label>
+            <input type="number" id="eb_steady_interval_s" value="3600" min="60" max="86400" step="60">
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field">
+            <label for="eb_movement_h">Movement duration (h/day)</label>
+            <input type="number" id="eb_movement_h" value="3" min="0" max="24" step="0.5">
           </div>
           <div class="field">
             <label for="eb_hb_interval_s">Heartbeat interval (s)</label>
@@ -838,17 +848,19 @@
         </div>
         <div class="frow">
           <div class="field">
+            <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Fixes / day (computed)</label>
+            <div class="result-box" id="eb_stat_fixday" style="padding:8px 11px;min-height:34px;font-size:0.82rem">—</div>
+          </div>
+          <div class="field">
             <label for="eb_indoor_pct">Indoor ratio (%)</label>
             <input type="number" id="eb_indoor_pct" value="20" min="0" max="100" step="5">
           </div>
-          <div style="padding-top:20px">
-            <div class="hint-box" style="font-size:0.74rem;padding:8px 11px">
-              Outdoor → assisted GNSS fix<br>
-              Indoor → WiFi scan (or autonomous GNSS)
-            </div>
-          </div>
         </div>
-        <div class="checks" style="margin-top:8px">
+        <div class="hint-box" style="font-size:0.74rem;margin-top:4px">
+          Fixes/day = <strong>movement_h × 3600 / moving_interval</strong> + <strong>(24 − movement_h) × 3600 / steady_interval</strong><br>
+          Outdoor fixes → assisted GNSS &nbsp;·&nbsp; Indoor fixes → WiFi scan (or autonomous GNSS)
+        </div>
+        <div class="checks" style="margin-top:10px">
           <label class="check"><input type="checkbox" id="eb_gnss_en" checked> GNSS enabled</label>
           <label class="check"><input type="checkbox" id="eb_wifi_en" checked> WiFi scan (indoor)</label>
         </div>
@@ -937,7 +949,7 @@
         <h2>Per-Event Energies</h2>
         <table class="ref-table" style="margin-top:8px">
           <tbody>
-            <tr><td>Location events / day</td><td id="eb_stat_locday" style="color:var(--text);font-family:var(--mono);font-size:0.8rem">—</td></tr>
+            <tr><td>Position fixes / day</td><td id="eb_stat_locday" style="color:var(--text);font-family:var(--mono);font-size:0.8rem">—</td></tr>
             <tr><td>Heartbeat / day</td><td id="eb_stat_hbday" style="color:var(--text);font-family:var(--mono);font-size:0.8rem">—</td></tr>
             <tr><td>LoRa energy / msg (incl. PER)</td><td id="eb_stat_lmsg" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
             <tr><td>GNSS energy / fix</td><td id="eb_stat_gnssfix" style="color:var(--accent);font-family:var(--mono);font-size:0.8rem">—</td></tr>
@@ -1920,8 +1932,10 @@ function ebGetConfig() {
     sf:              parseInt(eb('sf').value),
     per_pct:         parseFloat(eb('per_pct').value)  / 100,
     indoor_pct:      parseFloat(eb('indoor_pct').value) / 100,
-    loc_interval_s:  parseFloat(eb('loc_interval_s').value) || 3600,
-    hb_interval_s:   parseFloat(eb('hb_interval_s').value)  || 86400,
+    moving_interval_s: parseFloat(eb('moving_interval_s').value) || 300,
+    steady_interval_s: parseFloat(eb('steady_interval_s').value) || 3600,
+    movement_h:        parseFloat(eb('movement_h').value)        || 0,
+    hb_interval_s:     parseFloat(eb('hb_interval_s').value)     || 86400,
     wifi_enabled:    eb('wifi_en').checked,
     gnss_enabled:    eb('gnss_en').checked,
     harvest_enabled: eb('harvest_en').checked,
@@ -1957,9 +1971,16 @@ function ebCalc() {
   const per_factor = c.per_pct < 1 ? 1 / (1 - c.per_pct) : 5; // cap at 5× retries
   const lora_J_msg = lora_J_msg_nominal * per_factor;
 
-  // Events per day
-  const loc_per_day = 86400 / Math.max(60, c.loc_interval_s);
+  // ── Location fixes per day ──
+  // Moving period: movement_h hours at moving_interval_s
+  // Steady period: (24 - movement_h) hours at steady_interval_s
+  const movement_s  = Math.min(c.movement_h, 24) * 3600;
+  const steady_s    = (24 * 3600) - movement_s;
+  const loc_moving  = movement_s / Math.max(60, c.moving_interval_s);
+  const loc_steady  = steady_s   / Math.max(60, c.steady_interval_s);
+  const loc_per_day = loc_moving + loc_steady;
   const hb_per_day  = 86400 / Math.max(3600, c.hb_interval_s);
+
   // Location events: gnss_uplinks UL each (2 for server-side solving, 1 for on-chip)
   const gnss_ul = dev.gnss_uplinks || 1;
   const lora_J_day = (loc_per_day * gnss_ul + hb_per_day) * lora_J_msg;
@@ -2068,7 +2089,12 @@ function ebCalc() {
   eb('result_batcap').textContent = `Battery: ${fmtJ(bat_J)} (${c.bat_mAh} mAh @ ${V} V)`;
 
   // Stats
-  eb('stat_locday').textContent = loc_per_day.toFixed(1) + ' loc/day';
+  // ── Stats display ──
+  const fixDayEl = document.getElementById('eb_stat_fixday');
+  if (fixDayEl) fixDayEl.textContent =
+    `${loc_per_day.toFixed(1)} fix/day  (${loc_moving.toFixed(1)} moving + ${loc_steady.toFixed(1)} steady)`;
+
+  eb('stat_locday').textContent = loc_per_day.toFixed(1) + ' fix/day';
   eb('stat_hbday').textContent  = hb_per_day.toFixed(1)  + ' HB/day';
   eb('stat_lmsg').textContent   = fmtJ(lora_J_msg) + '/msg · ' + gnss_ul + ' UL/fix';
   eb('stat_gnssfix').textContent = gnss_J_day > 0 ? fmtJ(gnss_J_day / (loc_per_day || 1)) + '/fix' : 'disabled';
@@ -2143,7 +2169,8 @@ function ebOnDeviceChange() {
 // Wire up all inputs
 function ebInit() {
   ['device','chem','bat_mAh','sf','per_pct','indoor_pct',
-   'loc_interval_s','hb_interval_s','wifi_en','gnss_en',
+   'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
+   'wifi_en','gnss_en',
    'harvest_en','opv_area','opv_lux','opv_hours'].forEach(id => {
     const el = eb(id);
     if (!el) return;
