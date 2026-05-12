@@ -12,6 +12,7 @@
   <meta name="description" content="Truvami Downlink Payload Configurator" />
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%230a0c10'/><text x='256' y='340' font-family='Arial' font-size='300' font-weight='700' fill='%2300DDB3' text-anchor='middle'>T</text></svg>" />
   <link rel="manifest" id="pwa-manifest" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -1090,6 +1091,10 @@
           <div id="eb_result_total" style="color:var(--muted)"></div>
           <div id="eb_result_batcap" style="color:var(--muted);margin-top:3px"></div>
         </div>
+        <button class="btn-s" onclick="ebExportPDF(this)" style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:8px 14px">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M3 12h10M8 3v7M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Export PDF
+        </button>
       </div>
 
       <!-- Energy donut -->
@@ -2676,6 +2681,199 @@ document.addEventListener('DOMContentLoaded', () => {
 // Also init immediately in case DOM is already ready
 if (document.readyState !== 'loading') {
   setTimeout(() => { if (document.getElementById('eb_device')) ebInit(); }, 50);
+}
+
+function ebExportPDF(btn) {
+  const jspdf = window.jspdf;
+  if (!jspdf || !jspdf.jsPDF) { alert('PDF library not loaded yet — please try again.'); return; }
+  const { jsPDF } = jspdf;
+
+  if (btn) { btn.textContent = 'Generating…'; btn.disabled = true; }
+
+  try {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const PW = 595, PH = 842, M = 40, CW = PW - M * 2;
+    const TEAL  = [0, 180, 140];
+    const DARK  = [20, 25, 40];
+    const MUTED = [110, 120, 140];
+    const WARN  = [210, 135, 25];
+    const WHITE = [255, 255, 255];
+    const LGRAY = [247, 248, 250];
+    const DGRAY = [215, 218, 225];
+
+    const sf = c => doc.setFillColor(...c);
+    const ss = c => doc.setDrawColor(...c);
+    const st = c => doc.setTextColor(...c);
+    const tx = (s, x, y, o) => doc.text(String(s ?? ''), x, y, o || {});
+    const g  = id => { const el = document.getElementById('eb_'+id); return el ? (el.value || el.textContent || '').trim() : '—'; };
+
+    let y = M;
+
+    // ── Header bar ──────────────────────────────────────────────
+    sf(DARK); doc.rect(0, 0, PW, 52, 'F');
+    st(TEAL); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    tx('truvami', M, 34);
+    st([160,170,195]); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    tx('Energy Budget Report', M + 76, 34);
+    const ds = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    tx(ds, PW - M, 34, { align:'right' });
+    y = 70;
+
+    // ── Configuration snapshot ───────────────────────────────────
+    const devSel  = document.getElementById('eb_device');
+    const chemSel = document.getElementById('eb_chem');
+    const sfSel   = document.getElementById('eb_sf');
+    const devLabel  = devSel  ? devSel.options[devSel.selectedIndex].text   : '—';
+    const chemLabel = chemSel ? chemSel.options[chemSel.selectedIndex].text.split('(')[0].trim() : '—';
+    const sfLabel   = sfSel   ? sfSel.options[sfSel.selectedIndex].text     : '—';
+
+    const cfgs = [
+      ['Device',           devLabel],
+      ['Battery',          g('bat_mAh')+' mAh · '+chemLabel],
+      ['Spreading Factor', sfLabel],
+      ['Moving interval',  g('moving_interval_s')+' s'],
+      ['Steady interval',  g('steady_interval_s')+' s'],
+      ['Movement',         g('movement_h')+' h/day'],
+      ['Indoor ratio',     g('indoor_pct')+'%'],
+      ['Safety margin',    g('design_margin')+'%'],
+    ];
+    const cfgH = 18 + Math.ceil(cfgs.length / 2) * 15 + 6;
+    sf(LGRAY); ss(DGRAY); doc.setLineWidth(0.5);
+    doc.roundedRect(M, y, CW, cfgH, 4, 4, 'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); st(MUTED);
+    tx('CONFIGURATION', M + 10, y + 12); y += 18;
+    doc.setFontSize(8.5);
+    for (let i = 0; i < cfgs.length; i++) {
+      const cx = M + 10 + (i % 2) * (CW / 2);
+      const cy = y + Math.floor(i / 2) * 15;
+      doc.setFont('helvetica','normal'); st(MUTED); tx(cfgs[i][0]+': ', cx, cy);
+      doc.setFont('helvetica','bold');   st(DARK);  tx(cfgs[i][1], cx + 76, cy);
+    }
+    y += Math.ceil(cfgs.length / 2) * 15 + 10;
+
+    // ── Lifetime banner ──────────────────────────────────────────
+    y += 12;
+    const lifeText    = document.getElementById('eb_result_life')?.textContent   || '—';
+    const totalText   = document.getElementById('eb_result_total')?.textContent  || '';
+    const batText     = document.getElementById('eb_result_batcap')?.textContent || '';
+    const harvestText = document.getElementById('eb_result_harvest')?.textContent|| '';
+    const marginText  = document.getElementById('eb_margin_display')?.textContent|| '';
+
+    sf(DARK); doc.roundedRect(M, y, CW, 64, 4, 4, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); st([120,130,165]);
+    tx('ESTIMATED BATTERY LIFE (WITH SAFETY MARGIN)', M + 14, y + 14);
+    doc.setFont('helvetica','bold'); doc.setFontSize(28); st(TEAL);
+    tx(lifeText, M + 14, y + 46);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); st([150,160,185]);
+    tx(totalText,   PW - M - 10, y + 22, { align:'right' });
+    tx(batText,     PW - M - 10, y + 34, { align:'right' });
+    tx(harvestText, PW - M - 10, y + 46, { align:'right' });
+    if (marginText) { st(WARN); tx('Margined OUT: '+marginText, PW - M - 10, y + 58, { align:'right' }); }
+    y += 76;
+
+    // ── Component Detail table ───────────────────────────────────
+    y += 14;
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); st(DARK);
+    tx('Component Detail', M, y); y += 10;
+
+    const cols = [
+      { label:'Component',  w:122, align:'left'  },
+      { label:'I (mA)',     w: 50, align:'right' },
+      { label:'Duration',   w: 58, align:'right' },
+      { label:'E / event',  w: 66, align:'right' },
+      { label:'Events/day', w: 76, align:'right' },
+      { label:'E / day',    w: 64, align:'right' },
+      { label:'%',          w: 36, align:'right' },
+    ];
+    const tblW = cols.reduce((s,c) => s + c.w, 0);
+    const ROW_H = 15;
+
+    // Header
+    sf(DARK); doc.rect(M, y, tblW, 16, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); st([170,180,205]);
+    let cx = M;
+    for (const col of cols) {
+      const tx2 = col.align === 'right' ? cx + col.w - 5 : cx + 5;
+      tx(col.label, tx2, y + 11, { align: col.align });
+      cx += col.w;
+    }
+    y += 16;
+
+    const domRows = document.querySelectorAll('#eb_result_tbody tr');
+    let ri = 0;
+    for (const row of domRows) {
+      const cells = [...row.querySelectorAll('td')];
+      if (cells.length < 6) continue;
+      if (y + ROW_H > PH - 40) break;   // stop before footer
+
+      // Extract text from each cell (strip child element markup)
+      const vals = cells.slice(0, 7).map(td => td.textContent.trim().replace(/\s+/g,' '));
+
+      sf(ri % 2 === 0 ? WHITE : LGRAY);
+      doc.rect(M, y, tblW, ROW_H, 'F');
+      ss(DGRAY); doc.setLineWidth(0.2);
+      doc.line(M, y + ROW_H, M + tblW, y + ROW_H);
+
+      // % progress bar
+      const pct = parseFloat(vals[6]) || 0;
+      const barColX = M + cols.slice(0, 6).reduce((s,c) => s + c.w, 0);
+      sf([228,231,237]); doc.rect(barColX + 3, y + 4.5, cols[6].w - 6, 5.5, 'F');
+      sf(TEAL);          doc.rect(barColX + 3, y + 4.5, Math.max(0,(cols[6].w-6)*pct/100), 5.5, 'F');
+
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      cx = M;
+      for (let i = 0; i < 6; i++) {
+        const col = cols[i];
+        const maxW = col.w - 10;
+        let label = vals[i] || '—';
+        // Truncate long text (especially Events/day)
+        if (doc.getTextWidth(label) > maxW) {
+          while (label.length > 3 && doc.getTextWidth(label + '…') > maxW)
+            label = label.slice(0, -1);
+          label += '…';
+        }
+        st(i === 0 ? MUTED : DARK);
+        const tx2 = col.align === 'right' ? cx + col.w - 5 : cx + 5;
+        tx(label, tx2, y + 10.5, { align: col.align });
+        cx += col.w;
+      }
+      // % text (right-aligned inside bar column)
+      st(MUTED);
+      tx(pct > 0 ? pct.toFixed(1)+'%' : '', barColX + cols[6].w - 3, y + 10.5, { align:'right' });
+
+      y += ROW_H;
+      ri++;
+    }
+    // Table outer border
+    ss([180,185,200]); doc.setLineWidth(0.5);
+    doc.rect(M, y - ri * ROW_H - 16, tblW, ri * ROW_H + 16, 'S');
+
+    // ── Summary notes ────────────────────────────────────────────
+    y += 14;
+    const summEl = document.getElementById('eb_stat_summary');
+    if (summEl && y < PH - 60) {
+      const parts = summEl.textContent.trim().split('·').map(s => s.trim()).filter(Boolean);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); st(MUTED);
+      for (const part of parts) {
+        if (y > PH - 50) break;
+        tx('· ' + part, M, y); y += 12;
+      }
+    }
+
+    // ── Footer ───────────────────────────────────────────────────
+    sf(LGRAY); doc.rect(0, PH - 26, PW, 26, 'F');
+    ss(DGRAY); doc.setLineWidth(0.5); doc.line(0, PH - 26, PW, PH - 26);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); st(MUTED);
+    tx('Generated by Truvami Energy Budget Calculator', M, PH - 9);
+    tx('Internal tool — not for distribution', PW - M, PH - 9, { align:'right' });
+
+    doc.save('truvami-energy-budget-' + ds.replace(/ /g, '-') + '.pdf');
+  } finally {
+    if (btn) {
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M3 12h10M8 3v7M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Export PDF';
+      btn.disabled = false;
+    }
+  }
 }
 
 })();
