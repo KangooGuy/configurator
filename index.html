@@ -1347,20 +1347,47 @@
     <!-- Divider -->
     <div class="div" style="width:100%;margin:4px 0"></div>
 
-    <!-- Manual entry fallback -->
-    <div style="width:100%">
-      <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Or enter DevEUI manually</div>
-      <div id="dh-manual-row">
-        <input id="dh-manual-input" type="text" placeholder="e.g. 10CE45FFFE00C7F3" maxlength="16"
-          oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,'')"
-          onkeydown="if(event.key==='Enter')dhApplyManual()">
-        <button class="btn-p" onclick="dhApplyManual()" style="white-space:nowrap">Apply</button>
+    <!-- Manual entry options -->
+    <div style="width:100%;display:flex;flex-direction:column;gap:10px">
+
+      <!-- Option A: last 5 digits shortcut -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">
+          ⌨️ Quick entry — last 5 digits
+        </div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
+          Found on the device label. The prefix <span style="font-family:var(--mono);color:var(--text)">10CE45FFFE0</span> is added automatically.
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-family:var(--mono);font-size:0.78rem;color:var(--muted);white-space:nowrap;flex-shrink:0">10CE45FFFE0</span>
+          <input id="dh-short-input" type="text" placeholder="0C7F3" maxlength="5"
+            style="font-family:var(--mono);text-transform:uppercase;font-size:1rem;font-weight:700;letter-spacing:0.1em;text-align:center;flex:1;min-width:0"
+            oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,'');dhShortPreview()"
+            onkeydown="if(event.key==='Enter')dhApplyShort()">
+          <button class="btn-p" onclick="dhApplyShort()" style="white-space:nowrap;flex-shrink:0">Apply</button>
+        </div>
+        <div id="dh-short-preview" style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);margin-top:7px;min-height:16px;letter-spacing:0.05em"></div>
       </div>
+
+      <!-- Option B: full DevEUI -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">
+          Full DevEUI (16 hex characters)
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="dh-manual-input" type="text" placeholder="e.g. 10CE45FFFE00C7F3" maxlength="16"
+            style="font-family:var(--mono);text-transform:uppercase;flex:1;min-width:0"
+            oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,'')"
+            onkeydown="if(event.key==='Enter')dhApplyManual()">
+          <button class="btn-p" onclick="dhApplyManual()" style="white-space:nowrap;flex-shrink:0">Apply</button>
+        </div>
+      </div>
+
     </div>
 
     <!-- Hint -->
     <div class="hint-box" style="width:100%;margin-top:4px">
-      <strong>Tips for small QR codes:</strong> Use the <strong>Zoom slider</strong> to enlarge the target area, and turn on the <strong>Torch</strong> in low light. The scanner runs up to <strong>9 simultaneous passes</strong> per frame (3 scales × 3 contrast levels) for maximum detection.
+      <strong>Tips for small QR codes:</strong> Use the <strong>Zoom slider</strong> to enlarge the target area, and turn on the <strong>Torch</strong> in low light. The scanner runs up to <strong>6 passes per frame</strong> (3 crop scales × raw + contrast boost) for maximum detection.
     </div>
 
   </div>
@@ -3374,37 +3401,23 @@ window.ebLoadConfig = ebLoadConfig;
 })();
 </script>
 
-<!-- jsQR — works on iOS Safari, Android Chrome, all modern browsers -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+<!-- ZXing: professional-grade QR engine (same core as many native scanning apps) -->
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js" onerror="window._zxingLoadFailed=true"></script>
 <script>
-/* ══════════════════════════════════════════════════════════════
-   DEVICE HEALTH — QR Scanner
-   - Simple camera open (no strict resolution constraints)
-   - Visual zoom via CSS scale on the video element
-   - Multi-scale detection: 3 canvas crops per frame
-   - Contrast boost pass per crop for small / faded codes
-   - Torch toggle (Android Chrome; silently skipped on iOS)
-══════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
 
   const GRAFANA_BASE   = 'https://grafana.truvami.com/d/dcfac9ehkt86iod/uplinks?orgId=1&from=now-3h&to=now&timezone=browser&var-devices=';
   const DASHBOARD_BASE = 'https://dashboard.truvami.com/trackers/';
   const DEVEUI_RE      = /([0-9A-Fa-f]{2}[:\-]?){7}[0-9A-Fa-f]{2}/;
+  const SHORT_PREFIX   = '10CE45FFFE0';
 
-  let stream   = null;
-  let rafId    = null;
-  let torchOn  = false;
-  let userZoom = 1;
-  let frameN   = 0;
+  let scanControls = null;
+  let torchOn      = false;
+  let userZoom     = 1;
 
-  // Two pre-allocated canvases — never recreated during scanning
-  const canA   = document.createElement('canvas');
-  const ctxA   = canA.getContext('2d', { willReadFrequently: true });
-  const canB   = document.createElement('canvas');
-  const ctxB   = canB.getContext('2d', { willReadFrequently: true });
+  let codeReader = null;  // initialised lazily on first scan
 
-  // ── UI helpers ─────────────────────────────────────────────────────────────
   function setStatus(msg, isErr) {
     const el  = document.getElementById('dh-status');
     const err = document.getElementById('dh-error');
@@ -3412,9 +3425,20 @@ window.ebLoadConfig = ebLoadConfig;
     if (err) { err.textContent = isErr ? msg : ''; err.classList.toggle('show', !!isErr); }
   }
 
-  // ── DevEUI application ─────────────────────────────────────────────────────
+  function setBtnStopped() {
+    const btn = document.getElementById('dh-scan-btn');
+    if (!btn) return;
+    btn.innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">' +
+      '<path d="M2 7V4a1 1 0 0 1 1-1h3M16 3h3a1 1 0 0 1 1 1v3M22 17v3a1 1 0 0 1-1 1h-3M8 21H5a1 1 0 0 1-1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
+      '<rect x="7" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
+      '<rect x="13" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
+      '<rect x="7" y="13" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
+      '<path d="M13 13h1M16 13h1M13 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Scan QR Code';
+  }
+
   function applyDevEUI(raw) {
-    const m     = raw.match(DEVEUI_RE);
+    const m     = (raw || '').match(DEVEUI_RE);
     const clean = (m ? m[0] : raw.trim()).replace(/[:\-\s]/g, '').toUpperCase();
     if (!/^[0-9A-F]{16}$/.test(clean)) return false;
 
@@ -3423,11 +3447,11 @@ window.ebLoadConfig = ebLoadConfig;
     if (display && val) { val.textContent = clean; display.classList.add('show'); }
 
     const grafBtn = document.getElementById('dh-open-btn');
-    if (grafBtn)  { grafBtn.href  = GRAFANA_BASE   + encodeURIComponent(clean); grafBtn.classList.add('show'); }
+    if (grafBtn) { grafBtn.href = GRAFANA_BASE + encodeURIComponent(clean); grafBtn.classList.add('show'); }
     const dashBtn = document.getElementById('dh-dashboard-btn');
-    if (dashBtn)  { dashBtn.href  = DASHBOARD_BASE + encodeURIComponent(clean); dashBtn.classList.add('show'); }
+    if (dashBtn) { dashBtn.href = DASHBOARD_BASE + encodeURIComponent(clean); dashBtn.classList.add('show'); }
 
-    setStatus('\u2713 DevEUI detected \u2014 tap a button below to open the dashboard.');
+    setStatus('DevEUI detected — tap a button below to open the dashboard.');
     return true;
   }
 
@@ -3436,91 +3460,48 @@ window.ebLoadConfig = ebLoadConfig;
     if (inp && inp.value.trim()) applyDevEUI(inp.value.trim());
   };
 
-  // ── Contrast boost (in-place on existing ImageData) ────────────────────────
-  function boostContrast(imageData) {
-    const d = imageData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      // desaturate then stretch contrast around mid-grey
-      const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-      const v = Math.max(0, Math.min(255, (g - 128) * 2.5 + 128));
-      d[i] = d[i+1] = d[i+2] = v;
+  window.dhShortPreview = function () {
+    const inp = document.getElementById('dh-short-input');
+    const pre = document.getElementById('dh-short-preview');
+    if (!inp || !pre) return;
+    const suffix = inp.value.toUpperCase();
+    if (!suffix) { pre.textContent = ''; return; }
+    pre.textContent = '> ' + SHORT_PREFIX + suffix.padEnd(5, '_');
+    pre.style.color = suffix.length === 5 ? 'var(--accent)' : 'var(--muted)';
+  };
+
+  window.dhApplyShort = function () {
+    const inp    = document.getElementById('dh-short-input');
+    const pre    = document.getElementById('dh-short-preview');
+    const suffix = (inp ? inp.value : '').toUpperCase().replace(/[^0-9A-F]/g, '');
+    if (suffix.length !== 5) {
+      if (pre) { pre.textContent = 'Enter exactly 5 hex characters.'; pre.style.color = 'var(--danger)'; }
+      return;
     }
-    return imageData;
-  }
+    applyDevEUI(SHORT_PREFIX + suffix);
+  };
 
-  // ── Grab a centre-crop of the video at `scale` (1=full, 2=centre-half…) ───
-  // Drawn at output size W×H so jsQR gets consistent resolution.
-  function grabCrop(video, scale, W, H) {
-    const vw = video.videoWidth, vh = video.videoHeight;
-    const cw = vw / scale, ch = vh / scale;
-    const cx = (vw - cw) / 2,  cy = (vh - ch) / 2;
-    canA.width = W; canA.height = H;
-    ctxA.drawImage(video, cx, cy, cw, ch, 0, 0, W, H);
-    return ctxA.getImageData(0, 0, W, H);
-  }
-
-  // ── Scan one frame: up to 6 jsQR passes (3 scales × raw+contrast) ─────────
-  const JSQR_OPTS = { inversionAttempts: 'attemptBoth' };
-  const SCALES    = [1, 2, 3];          // applied on top of userZoom
-
-  function scanFrame() {
-    const video = document.getElementById('dh-video');
-    if (!video || video.readyState < 2 || video.videoWidth === 0) {
-      rafId = requestAnimationFrame(scanFrame); return;
-    }
-
-    frameN++;
-    // Limit to ~15 fps worth of heavy processing (skip every other rAF)
-    if (frameN % 2 !== 0) { rafId = requestAnimationFrame(scanFrame); return; }
-
-    const vw = video.videoWidth, vh = video.videoHeight;
-    // Decode at native resolution up to 1024px wide
-    const W = Math.min(1024, vw), H = Math.round(vh * W / vw);
-
-    let passLabel = '';
-    for (const s of SCALES) {
-      const effectiveScale = s * userZoom;
-      const raw = grabCrop(video, effectiveScale, W, H);
-
-      // Pass 1: raw
-      const code1 = jsQR(raw.data, W, H, JSQR_OPTS);
-      if (code1 && applyDevEUI(code1.data)) { dhStopScan(); return; }
-
-      // Pass 2: contrast-boosted (reuse canB to avoid allocation)
-      canB.width = W; canB.height = H;
-      ctxB.putImageData(raw, 0, 0);
-      const boosted = ctxB.getImageData(0, 0, W, H);
-      boostContrast(boosted);
-      const code2 = jsQR(boosted.data, W, H, JSQR_OPTS);
-      if (code2 && applyDevEUI(code2.data)) { dhStopScan(); return; }
-
-      passLabel = s + '\u00d7 crop';
-    }
-
-    // Update status every 30 processed frames
-    if (frameN % 60 === 0) {
-      const el = document.getElementById('dh-scan-passes');
-      if (el) { el.textContent = Math.round(frameN / 2) + ' frames analysed'; el.classList.add('active'); }
-    }
-
-    rafId = requestAnimationFrame(scanFrame);
-  }
-
-  // ── Zoom slider ────────────────────────────────────────────────────────────
   window.dhSetZoom = function (z) {
     userZoom = z;
     const label = document.getElementById('dh-zoom-val');
-    if (label) label.textContent = z.toFixed(1) + '\u00d7';
-    // Visual zoom: scale the video element (CSS only — no black screen)
+    if (label) label.textContent = z.toFixed(1) + 'x';
     const video = document.getElementById('dh-video');
-    if (video) video.style.transform = 'scale(' + z + ')';
-    // Prevent the scaled video from spilling outside the container
-    const container = document.getElementById('dh-video-container');
-    if (container) container.style.overflow = 'hidden';
+    if (video) video.style.transform = z === 1 ? '' : 'scale(' + z + ')';
+    if (video && video.srcObject) {
+      const track = video.srcObject.getVideoTracks()[0];
+      if (track) {
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        if (caps.zoom) {
+          const nz = caps.zoom.min + (caps.zoom.max - caps.zoom.min) * ((z - 1) / 7);
+          track.applyConstraints({ advanced: [{ zoom: Math.max(caps.zoom.min, Math.min(caps.zoom.max, nz)) }] }).catch(function(){});
+        }
+      }
+    }
   };
 
-  // ── Torch ──────────────────────────────────────────────────────────────────
   window.dhToggleTorch = async function () {
+    const video  = document.getElementById('dh-video');
+    const stream = video && video.srcObject;
     if (!stream) return;
     const track = stream.getVideoTracks()[0];
     if (!track) return;
@@ -3528,89 +3509,107 @@ window.ebLoadConfig = ebLoadConfig;
     try {
       await track.applyConstraints({ advanced: [{ torch: torchOn }] });
       const btn = document.getElementById('dh-torch-btn');
-      if (btn) { btn.textContent = torchOn ? '\ud83d\udd26 Torch ON' : '\ud83d\udd26 Torch'; btn.classList.toggle('on', torchOn); }
+      if (btn) { btn.textContent = torchOn ? 'Torch ON' : 'Torch'; btn.classList.toggle('on', torchOn); }
     } catch (_) {
       torchOn = false;
       const btn = document.getElementById('dh-torch-btn');
-      if (btn) { btn.textContent = '\ud83d\udd26 N/A'; btn.disabled = true; }
+      if (btn) { btn.textContent = 'Torch N/A'; btn.disabled = true; }
     }
   };
 
-  // ── Start ──────────────────────────────────────────────────────────────────
   async function dhStartScan() {
     const errEl = document.getElementById('dh-error');
     if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
 
+    // Lazy-init: create reader on first use so we can detect load failures clearly
+    if (!codeReader) {
+      if (typeof ZXing === 'undefined' || window._zxingLoadFailed) {
+        setStatus(
+          'QR library (ZXing) could not be loaded. ' +
+          'Check your internet connection, then reload the page. ' +
+          'You can still use the manual entry options below.',
+          true
+        );
+        return;
+      }
+      try { codeReader = new ZXing.BrowserQRCodeReader(); }
+      catch (e) {
+        setStatus('Failed to initialise QR reader: ' + (e.message || e), true);
+        return;
+      }
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setStatus('Camera API not available. This page must be served over HTTPS.', true);
+      setStatus('Camera API not available. Page must be served over HTTPS.', true);
       return;
     }
 
-    // Keep constraints simple — no min/max that could reject the camera on iOS
+    const videoEl  = document.getElementById('dh-video');
+    const slider   = document.getElementById('dh-zoom-slider');
+    const zLabel   = document.getElementById('dh-zoom-val');
+    const torchBtn = document.getElementById('dh-torch-btn');
+    const passEl   = document.getElementById('dh-scan-passes');
+
+    userZoom = 1; torchOn = false;
+    if (slider)   slider.value = 1;
+    if (zLabel)   zLabel.textContent = '1.0x';
+    if (torchBtn) { torchBtn.textContent = 'Torch'; torchBtn.classList.remove('on'); torchBtn.disabled = false; }
+    if (passEl)   { passEl.textContent = ''; passEl.classList.remove('active'); }
+    if (videoEl)  videoEl.style.transform = '';
+
+    setStatus('Opening camera...');
+
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } }
-      });
+      scanControls = await codeReader.decodeFromConstraints(
+        { video: { facingMode: { ideal: 'environment' } } },
+        videoEl,
+        function (result, err) {
+          if (result) {
+            var text = result.getText();
+            if (applyDevEUI(text)) {
+              dhStopScan();
+            } else {
+              setStatus('QR read: ' + text.slice(0, 48) + (text.length > 48 ? '...' : '') + ' (not a DevEUI)');
+            }
+          }
+          // err fires every frame when no QR is found — this is normal, ignore
+        }
+      );
     } catch (e) {
-      setStatus(e.name === 'NotAllowedError'
+      var isPermission = e.name === 'NotAllowedError' || (e.message || '').toLowerCase().indexOf('ermission') !== -1;
+      setStatus(isPermission
         ? 'Camera permission denied — tap the address bar lock and allow Camera.'
-        : 'Cannot open camera: ' + e.message, true);
+        : 'Cannot open camera: ' + (e.message || e), true);
+      scanControls = null;
+      setBtnStopped();
       return;
-    }
-
-    const video = document.getElementById('dh-video');
-    if (video) {
-      video.srcObject = stream;
-      video.style.transform = '';
-      try { await video.play(); } catch (_) {}
     }
 
     document.getElementById('dh-video-container').classList.add('active');
     document.getElementById('dh-controls').classList.add('active');
-
-    // Reset controls
-    userZoom = 1; frameN = 0;
-    const slider = document.getElementById('dh-zoom-slider');
-    if (slider) slider.value = 1;
-    const label = document.getElementById('dh-zoom-val');
-    if (label) label.textContent = '1.0\u00d7';
-    torchOn = false;
-    const torchBtn = document.getElementById('dh-torch-btn');
-    if (torchBtn) { torchBtn.textContent = '\ud83d\udd26 Torch'; torchBtn.classList.remove('on'); torchBtn.disabled = false; }
-    const passEl = document.getElementById('dh-scan-passes');
-    if (passEl) { passEl.textContent = ''; passEl.classList.remove('active'); }
-
-    const btn = document.getElementById('dh-scan-btn');
-    if (btn) btn.innerHTML = '\u2b1b Stop Scanning';
-
-    setStatus('Scanning \u2014 hold the QR code steady inside the frame\u2026');
-    rafId = requestAnimationFrame(scanFrame);
+    var btn = document.getElementById('dh-scan-btn');
+    if (btn) btn.innerHTML = 'Stop Scanning';
+    setStatus('Scanning — hold the QR code steady inside the frame...');
   }
 
-  // ── Stop ───────────────────────────────────────────────────────────────────
   window.dhStopScan = function () {
-    if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
-    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-    torchOn = false;
-    const video = document.getElementById('dh-video');
-    if (video) { video.srcObject = null; video.style.transform = ''; }
-    const el = document.getElementById('dh-video-container');
-    if (el) el.classList.remove('active');
-    const ctrl = document.getElementById('dh-controls');
+    if (scanControls) {
+      try { scanControls.stop(); } catch (_) {}
+      scanControls = null;
+    }
+    try { if (codeReader) { codeReader.reset(); } } catch (_) {}
+    var videoEl = document.getElementById('dh-video');
+    if (videoEl) { videoEl.srcObject = null; videoEl.style.transform = ''; }
+    var vc   = document.getElementById('dh-video-container');
+    var ctrl = document.getElementById('dh-controls');
+    if (vc)   vc.classList.remove('active');
     if (ctrl) ctrl.classList.remove('active');
-    const btn = document.getElementById('dh-scan-btn');
-    if (btn) btn.innerHTML =
-      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">' +
-      '<path d="M2 7V4a1 1 0 0 1 1-1h3M16 3h3a1 1 0 0 1 1 1v3M22 17v3a1 1 0 0 1-1 1h-3M8 21H5a1 1 0 0 1-1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
-      '<rect x="7" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
-      '<rect x="13" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
-      '<rect x="7" y="13" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
-      '<path d="M13 13h1M16 13h1M13 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Scan QR Code';
+    torchOn = false; userZoom = 1;
+    setBtnStopped();
   };
 
   window.dhToggleScan = function () {
-    if (stream) { dhStopScan(); setStatus('Scanner stopped.'); }
-    else        { dhStartScan(); }
+    if (scanControls) { dhStopScan(); setStatus('Scanner stopped.'); }
+    else              { dhStartScan(); }
   };
 
 })();
