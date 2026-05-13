@@ -1166,160 +1166,133 @@
 
   <style>
     #dh-scanner-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 18px;
-      max-width: 520px;
-      margin: 0 auto;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 16px; max-width: 520px; margin: 0 auto;
     }
+    #dh-top-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
     #dh-video-container {
-      position: relative;
-      width: 100%;
-      max-width: 380px;
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      background: #000;
+      position: relative; width: 100%; max-width: 400px;
+      border-radius: var(--radius-lg); overflow: hidden; background: #000;
       border: 2px solid var(--accent-glow);
       box-shadow: 0 0 0 1px var(--accent-dim), 0 8px 40px rgba(0,221,179,0.12);
       display: none;
     }
     #dh-video-container.active { display: block; }
-    #dh-video {
-      width: 100%;
-      display: block;
-      border-radius: calc(var(--radius-lg) - 2px);
-    }
+    #dh-video { width: 100%; display: block; border-radius: calc(var(--radius-lg) - 2px); }
+    /* scan-frame overlay */
     #dh-scan-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
+      position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center; pointer-events: none;
     }
-    .dh-scan-frame {
-      width: 180px;
-      height: 180px;
-      border-radius: 12px;
-      position: relative;
-    }
-    .dh-scan-frame::before,
-    .dh-scan-frame::after {
-      content: '';
-      position: absolute;
-      width: 36px;
-      height: 36px;
-      border-color: var(--accent);
-      border-style: solid;
-      border-width: 0;
-    }
-    .dh-scan-frame::before { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; border-radius: 6px 0 0 0; }
-    .dh-scan-frame::after  { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 6px 0; }
+    .dh-scan-frame { width: 200px; height: 200px; position: relative; }
+    .dh-scan-frame::before, .dh-scan-frame::after,
     .dh-corner-tr, .dh-corner-bl {
-      position: absolute;
-      width: 36px;
-      height: 36px;
-      border-color: var(--accent);
-      border-style: solid;
-      border-width: 0;
+      content: ''; position: absolute; width: 40px; height: 40px;
+      border-color: var(--accent); border-style: solid; border-width: 0;
     }
-    .dh-corner-tr { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; border-radius: 0 6px 0 0; }
-    .dh-corner-bl { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 6px; }
+    .dh-scan-frame::before { top:0; left:0; border-top-width:3px; border-left-width:3px; border-radius:6px 0 0 0; }
+    .dh-scan-frame::after  { bottom:0; right:0; border-bottom-width:3px; border-right-width:3px; border-radius:0 0 6px 0; }
+    .dh-corner-tr { top:0; right:0; border-top-width:3px; border-right-width:3px; border-radius:0 6px 0 0; }
+    .dh-corner-bl { bottom:0; left:0; border-bottom-width:3px; border-left-width:3px; border-radius:0 0 0 6px; }
     .dh-scan-line {
-      position: absolute;
-      left: 12px; right: 12px;
-      height: 2px;
+      position: absolute; left:14px; right:14px; height:2px;
       background: linear-gradient(90deg, transparent, var(--accent), transparent);
-      animation: dhscan 2s ease-in-out infinite;
-      border-radius: 1px;
+      animation: dhscan 2s ease-in-out infinite; border-radius:1px;
     }
     @keyframes dhscan {
-      0%   { top: 12px; opacity: 0; }
-      10%  { opacity: 1; }
-      90%  { opacity: 1; }
-      100% { top: calc(100% - 14px); opacity: 0; }
+      0%   { top:14px; opacity:0; }
+      10%  { opacity:1; }
+      90%  { opacity:1; }
+      100% { top:calc(100% - 16px); opacity:0; }
     }
-    #dh-status {
-      font-size: 0.82rem;
-      color: var(--muted);
-      text-align: center;
-      min-height: 20px;
+    /* zoom controls */
+    #dh-controls {
+      display: none; width: 100%; max-width: 400px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px;
+      gap: 10px; flex-direction: column;
     }
-    #dh-deveui-display {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
+    #dh-controls.active { display: flex; }
+    .dh-ctrl-row { display: flex; align-items: center; gap: 10px; }
+    .dh-ctrl-label {
+      font-size: 0.7rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; min-width: 48px;
     }
-    #dh-deveui-display.show { display: flex; }
+    #dh-zoom-slider {
+      flex:1; -webkit-appearance:none; appearance:none;
+      height:4px; border-radius:2px; background:var(--surface-3);
+      border:none; outline:none; padding:0; min-height:unset; width:100%;
+    }
+    #dh-zoom-slider::-webkit-slider-thumb {
+      -webkit-appearance:none; width:22px; height:22px; border-radius:50%;
+      background:var(--accent); cursor:pointer; border:2px solid #000;
+      box-shadow:0 0 0 2px var(--accent-glow);
+    }
+    #dh-zoom-slider::-moz-range-thumb {
+      width:20px; height:20px; border-radius:50%; background:var(--accent);
+      cursor:pointer; border:2px solid #000;
+    }
+    #dh-zoom-val {
+      font-family:var(--mono); font-size:0.72rem; color:var(--accent);
+      min-width:28px; text-align:right;
+    }
+    #dh-torch-btn {
+      padding:5px 12px; font-size:0.78rem; font-weight:700;
+      background:var(--surface-3); color:var(--muted);
+      border:1px solid var(--border-hi); border-radius:var(--radius);
+      cursor:pointer; transition:all 0.15s; white-space:nowrap;
+    }
+    #dh-torch-btn.on { background:var(--warn); color:#000; border-color:transparent; }
+    /* status */
+    #dh-status { font-size:0.82rem; color:var(--muted); text-align:center; min-height:20px; }
+    #dh-scan-passes {
+      font-family:var(--mono); font-size:0.7rem; color:var(--surface-3);
+      text-align:center; transition:color 0.3s;
+    }
+    #dh-scan-passes.active { color:var(--muted); }
+    #dh-error { color:var(--danger); font-size:0.78rem; text-align:center; display:none; }
+    #dh-error.show { display:block; }
+    /* result */
+    #dh-deveui-display { display:none; flex-direction:column; align-items:center; gap:10px; width:100%; }
+    #dh-deveui-display.show { display:flex; }
     #dh-deveui-value {
-      font-family: var(--mono);
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--accent);
-      background: var(--surface-2);
-      border: 1px solid var(--accent-glow);
-      border-radius: var(--radius);
-      padding: 10px 20px;
-      letter-spacing: 0.08em;
-      word-break: break-all;
-      text-align: center;
+      font-family:var(--mono); font-size:1.05rem; font-weight:700; color:var(--accent);
+      background:var(--surface-2); border:1px solid var(--accent-glow);
+      border-radius:var(--radius); padding:10px 20px; letter-spacing:0.08em;
+      word-break:break-all; text-align:center;
     }
+    /* link buttons */
     .dh-link-btn {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      width: 100%;
-      max-width: 320px;
-      padding: 13px 20px;
-      font-size: 0.9rem;
-      font-weight: 700;
-      border: none;
-      border-radius: var(--radius);
-      cursor: pointer;
-      text-decoration: none;
-      transition: opacity 0.15s;
+      display:none; align-items:center; justify-content:center; gap:8px;
+      width:100%; max-width:320px; padding:13px 20px; font-size:0.9rem;
+      font-weight:700; border:none; border-radius:var(--radius);
+      cursor:pointer; text-decoration:none; transition:opacity 0.15s;
     }
-    .dh-link-btn.show { display: flex; }
-    .dh-link-btn:hover { opacity: 0.88; }
-    #dh-open-btn      { background: var(--accent); color: #000; }
-    #dh-dashboard-btn { background: var(--surface-3); color: var(--text); border: 1px solid var(--border-hi); }
-    #dh-manual-row {
-      display: flex;
-      gap: 8px;
-      width: 100%;
-      align-items: center;
-    }
-    #dh-manual-input {
-      flex: 1;
-      font-family: var(--mono);
-      text-transform: uppercase;
-    }
-    #dh-error {
-      color: var(--danger);
-      font-size: 0.78rem;
-      text-align: center;
-      display: none;
-    }
-    #dh-error.show { display: block; }
+    .dh-link-btn.show { display:flex; }
+    .dh-link-btn:hover { opacity:0.88; }
+    #dh-open-btn      { background:var(--accent); color:#000; }
+    #dh-dashboard-btn { background:var(--surface-3); color:var(--text); border:1px solid var(--border-hi); }
+    /* manual */
+    #dh-manual-row { display:flex; gap:8px; width:100%; align-items:center; }
+    #dh-manual-input { flex:1; font-family:var(--mono); text-transform:uppercase; }
   </style>
 
   <div id="dh-scanner-wrap">
 
-    <!-- Scan / Stop button -->
-    <button class="btn-p" id="dh-scan-btn" onclick="dhToggleScan()" style="display:flex;align-items:center;gap:8px;padding:11px 22px;font-size:0.9rem">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
-        <path d="M2 7V4a1 1 0 0 1 1-1h3M16 3h3a1 1 0 0 1 1 1v3M22 17v3a1 1 0 0 1-1 1h-3M8 21H5a1 1 0 0 1-1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        <rect x="7" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
-        <rect x="13" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
-        <rect x="7" y="13" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
-        <path d="M13 13h1M16 13h1M13 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-      Scan QR Code
-    </button>
+    <!-- Action buttons -->
+    <div id="dh-top-btns">
+      <button class="btn-p" id="dh-scan-btn" onclick="dhToggleScan()"
+        style="display:flex;align-items:center;gap:8px;padding:11px 22px;font-size:0.9rem">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+          <path d="M2 7V4a1 1 0 0 1 1-1h3M16 3h3a1 1 0 0 1 1 1v3M22 17v3a1 1 0 0 1-1 1h-3M8 21H5a1 1 0 0 1-1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <rect x="7" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="13" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="7" y="13" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M13 13h1M16 13h1M13 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        Scan QR Code
+      </button>
+    </div>
 
     <!-- Camera viewfinder -->
     <div id="dh-video-container">
@@ -1333,7 +1306,19 @@
       </div>
     </div>
 
+    <!-- Controls panel (zoom + torch) -->
+    <div id="dh-controls">
+      <div class="dh-ctrl-row">
+        <span class="dh-ctrl-label">Zoom</span>
+        <input id="dh-zoom-slider" type="range" min="1" max="8" step="0.1" value="1"
+          oninput="dhSetZoom(parseFloat(this.value))">
+        <span id="dh-zoom-val">1.0×</span>
+        <button id="dh-torch-btn" onclick="dhToggleTorch()">🔦 Torch</button>
+      </div>
+    </div>
+
     <div id="dh-status">Point the camera at the DevEUI QR code on the device.</div>
+    <div id="dh-scan-passes"></div>
     <div id="dh-error"></div>
 
     <!-- Detected DevEUI -->
@@ -1375,7 +1360,7 @@
 
     <!-- Hint -->
     <div class="hint-box" style="width:100%;margin-top:4px">
-      <strong>How it works:</strong> The QR code on each Truvami device encodes the 16-character LoRaWAN DevEUI (e.g. <span style="font-family:var(--mono);color:var(--accent)">10CE45FFFE00C7F3</span>). Scanning it opens the live Grafana uplink dashboard filtered to that device. The dashboard requires a Grafana login.
+      <strong>Tips for small QR codes:</strong> Use the <strong>Zoom slider</strong> to enlarge the target area, and turn on the <strong>Torch</strong> in low light. The scanner runs up to <strong>9 simultaneous passes</strong> per frame (3 scales × 3 contrast levels) for maximum detection.
     </div>
 
   </div>
@@ -1383,6 +1368,7 @@
 
 <script>
 /* ══════════════════════════════════════════
+   TOP-LEVEL MODE SWITCHER
    TOP-LEVEL MODE SWITCHER
 ══════════════════════════════════════════ */
 function selectMode(mode) {
@@ -3388,138 +3374,254 @@ window.ebLoadConfig = ebLoadConfig;
 })();
 </script>
 
-<!-- jsQR: pure-JS QR decoder, works on iOS Safari, Android Chrome, all modern browsers -->
+<!-- jsQR: pure-JS QR decoder — iOS Safari, Android Chrome, all modern browsers -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
 <script>
-/* ══════════════════════════════════════════
-   DEVICE HEALTH — QR SCANNER (jsQR, canvas-based — works on iOS Safari)
-══════════════════════════════════════════ */
-(function() {
+/* ══════════════════════════════════════════════════════════════════
+   DEVICE HEALTH — Advanced QR Scanner
+   Strategy: up to 9 jsQR passes per frame
+     · 3 digital zoom levels (1×, 2×, 3×) via centre-crop
+     · 3 contrast levels (raw, boosted, inverted) per crop
+   Camera: request 4K → system picks best available
+   Extras: torch toggle, 1-8× user zoom slider
+══════════════════════════════════════════════════════════════════ */
+(function () {
   'use strict';
 
-  const GRAFANA_BASE    = 'https://grafana.truvami.com/d/dcfac9ehkt86iod/uplinks?orgId=1&from=now-3h&to=now&timezone=browser&var-devices=';
-  const DASHBOARD_BASE  = 'https://dashboard.truvami.com/trackers/';
-  const DEVEUI_RE = /([0-9A-Fa-f]{2}[:\-]?){7}[0-9A-Fa-f]{2}/;
+  const GRAFANA_BASE   = 'https://grafana.truvami.com/d/dcfac9ehkt86iod/uplinks?orgId=1&from=now-3h&to=now&timezone=browser&var-devices=';
+  const DASHBOARD_BASE = 'https://dashboard.truvami.com/trackers/';
+  const DEVEUI_RE      = /([0-9A-Fa-f]{2}[:\-]?){7}[0-9A-Fa-f]{2}/;
 
-  let stream = null;
-  let rafId  = null;
-  // Off-screen canvas used to grab video frames for jsQR
-  const canvas = document.createElement('canvas');
-  const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+  let stream      = null;
+  let rafId       = null;
+  let torchOn     = false;
+  let userZoom    = 1;      // slider zoom (visual + crop)
+  let passCount   = 0;      // frames scanned counter for UI feedback
 
-  function normaliseDevEUI(raw) {
-    return raw.replace(/[:\-\s]/g, '').toUpperCase();
-  }
-  function isValidDevEUI(str) {
-    return /^[0-9A-F]{16}$/.test(str);
-  }
+  // Two canvases: one for raw grab, one for contrast-processed version
+  const rawCanvas  = document.createElement('canvas');
+  const rawCtx     = rawCanvas.getContext('2d', { willReadFrequently: true });
+  const procCanvas = document.createElement('canvas');
+  const procCtx    = procCanvas.getContext('2d', { willReadFrequently: true });
 
-  function dhSetStatus(msg, isError) {
+  // ── helpers ────────────────────────────────────────────────────────────────
+
+  function normalise(raw)  { return raw.replace(/[:\-\s]/g, '').toUpperCase(); }
+  function isDevEUI(s)     { return /^[0-9A-F]{16}$/.test(s); }
+
+  function setStatus(msg, isErr) {
     const el  = document.getElementById('dh-status');
     const err = document.getElementById('dh-error');
-    if (el)  el.textContent  = isError ? '' : msg;
-    if (err) { err.textContent = isError ? msg : ''; err.classList.toggle('show', !!isError); }
+    if (el)  el.textContent  = isErr ? '' : msg;
+    if (err) { err.textContent = isErr ? msg : ''; err.classList.toggle('show', !!isErr); }
   }
 
-  function dhApplyDevEUI(raw) {
-    const match = raw.match(DEVEUI_RE);
-    const candidate = match ? match[0] : raw.trim();
-    const clean = normaliseDevEUI(candidate);
-    if (!isValidDevEUI(clean)) {
-      dhSetStatus('QR code detected but doesn\'t look like a DevEUI: ' + raw.trim().slice(0, 40), true);
+  function applyDevEUI(raw) {
+    const m = raw.match(DEVEUI_RE);
+    const clean = normalise(m ? m[0] : raw.trim());
+    if (!isDevEUI(clean)) {
+      setStatus('QR detected but not a DevEUI: ' + raw.trim().slice(0, 32), true);
       return false;
     }
-    // Show DevEUI badge
     const display = document.getElementById('dh-deveui-display');
     const val     = document.getElementById('dh-deveui-value');
     if (display && val) { val.textContent = clean; display.classList.add('show'); }
-    // Wire up Grafana button
-    const btn = document.getElementById('dh-open-btn');
-    if (btn) { btn.href = GRAFANA_BASE + encodeURIComponent(clean); btn.classList.add('show'); }
-    const dbtn = document.getElementById('dh-dashboard-btn');
-    if (dbtn) { dbtn.href = DASHBOARD_BASE + encodeURIComponent(clean); dbtn.classList.add('show'); }
-    dhSetStatus('DevEUI scanned — tap the button below to open Grafana.');
+    const grafBtn = document.getElementById('dh-open-btn');
+    if (grafBtn)  { grafBtn.href  = GRAFANA_BASE   + encodeURIComponent(clean); grafBtn.classList.add('show'); }
+    const dashBtn = document.getElementById('dh-dashboard-btn');
+    if (dashBtn)  { dashBtn.href  = DASHBOARD_BASE + encodeURIComponent(clean); dashBtn.classList.add('show'); }
+    setStatus('✓ DevEUI scanned — tap a button below to open the dashboard.');
     return true;
   }
 
-  window.dhApplyManual = function() {
+  window.dhApplyManual = function () {
     const inp = document.getElementById('dh-manual-input');
-    if (!inp || !inp.value.trim()) return;
-    dhApplyDevEUI(inp.value.trim());
+    if (inp && inp.value.trim()) applyDevEUI(inp.value.trim());
   };
 
-  // ── Scan loop: draw video frame → jsQR ──────────────────────────────────
-  function dhScanFrame() {
-    const video = document.getElementById('dh-video');
-    if (!video || video.readyState < 2) { rafId = requestAnimationFrame(dhScanFrame); return; }
-    if (video.videoWidth === 0)         { rafId = requestAnimationFrame(dhScanFrame); return; }
-
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    let imageData;
-    try { imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); }
-    catch (_) { rafId = requestAnimationFrame(dhScanFrame); return; }
-
-    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-    if (code && code.data) {
-      if (dhApplyDevEUI(code.data)) {
-        dhStopScan();
-        return;
-      }
+  // ── contrast processing ────────────────────────────────────────────────────
+  // Returns a new ImageData with contrast adjusted by `factor` and optionally inverted.
+  function processImageData(src, factor, invert) {
+    procCanvas.width  = src.width;
+    procCanvas.height = src.height;
+    // draw source into procCanvas then read back
+    const tmp = document.createElement('canvas');
+    tmp.width = src.width; tmp.height = src.height;
+    tmp.getContext('2d').putImageData(src, 0, 0);
+    procCtx.drawImage(tmp, 0, 0);
+    const out  = procCtx.getImageData(0, 0, src.width, src.height);
+    const data = out.data;
+    const mid  = 128;
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i], g = data[i+1], b = data[i+2];
+      // Contrast: (val - 128) * factor + 128, clamped
+      r = Math.max(0, Math.min(255, (r - mid) * factor + mid));
+      g = Math.max(0, Math.min(255, (g - mid) * factor + mid));
+      b = Math.max(0, Math.min(255, (b - mid) * factor + mid));
+      if (invert) { r = 255 - r; g = 255 - g; b = 255 - b; }
+      data[i] = r; data[i+1] = g; data[i+2] = b;
     }
-    rafId = requestAnimationFrame(dhScanFrame);
+    return out;
   }
 
-  // ── Start scanning ───────────────────────────────────────────────────────
+  // ── grab a centre-crop of the video at a given scale factor ───────────────
+  // scale = 1 → full frame, scale = 2 → centre 50%, scale = 3 → centre 33%
+  // The crop is drawn at `outW × outH` (maintains resolution for jsQR).
+  function grabCrop(video, scale, outW, outH) {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const cropW = Math.round(vw / scale);
+    const cropH = Math.round(vh / scale);
+    const cropX = Math.round((vw - cropW) / 2);
+    const cropY = Math.round((vh - cropH) / 2);
+    rawCanvas.width  = outW;
+    rawCanvas.height = outH;
+    rawCtx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
+    return rawCtx.getImageData(0, 0, outW, outH);
+  }
+
+  // ── scan one frame ─────────────────────────────────────────────────────────
+  const SCALES    = [1, 2, 3];          // digital crop zoom levels
+  const CONTRASTS = [                   // [factor, invert]
+    [1.0,  false],                      // raw
+    [2.5,  false],                      // high contrast
+    [2.5,  true ],                      // high contrast + inverted (light QR on dark bg)
+  ];
+  const JSQR_OPTS = { inversionAttempts: 'attemptBoth' };
+
+  function scanFrame() {
+    const video = document.getElementById('dh-video');
+    if (!video || video.readyState < 2 || !video.videoWidth) {
+      rafId = requestAnimationFrame(scanFrame); return;
+    }
+
+    const vw = video.videoWidth, vh = video.videoHeight;
+    // Base decode resolution per crop: cap at 1280px wide for performance
+    const baseW = Math.min(1280, vw);
+    const baseH = Math.round(vh * (baseW / vw));
+
+    // Apply user zoom on top of each scale pass
+    const effectiveScales = SCALES.map(s => s * userZoom);
+
+    passCount++;
+    let totalPasses = 0;
+
+    for (const scale of effectiveScales) {
+      const raw = grabCrop(video, scale, baseW, baseH);
+      for (const [factor, invert] of CONTRASTS) {
+        totalPasses++;
+        const imgData = (factor === 1.0 && !invert) ? raw : processImageData(raw, factor, invert);
+        const code = jsQR(imgData.data, imgData.width, imgData.height, JSQR_OPTS);
+        if (code && code.data) {
+          if (applyDevEUI(code.data)) {
+            const passEl = document.getElementById('dh-scan-passes');
+            if (passEl) passEl.textContent = '✓ found on scale ' + scale.toFixed(1) + '× · pass ' + totalPasses;
+            dhStopScan();
+            return;
+          }
+        }
+      }
+    }
+
+    // Update pass counter UI every 10 frames
+    if (passCount % 10 === 0) {
+      const passEl = document.getElementById('dh-scan-passes');
+      if (passEl) {
+        passEl.textContent = totalPasses + ' passes/frame · ' + passCount + ' frames scanned';
+        passEl.classList.add('active');
+      }
+    }
+
+    rafId = requestAnimationFrame(scanFrame);
+  }
+
+  // ── torch ─────────────────────────────────────────────────────────────────
+  window.dhToggleTorch = async function () {
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      torchOn = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+      const btn = document.getElementById('dh-torch-btn');
+      if (btn) { btn.textContent = torchOn ? '🔦 Torch ON' : '🔦 Torch'; btn.classList.toggle('on', torchOn); }
+    } catch (_) {
+      const btn = document.getElementById('dh-torch-btn');
+      if (btn) { btn.textContent = '🔦 N/A'; btn.disabled = true; }
+    }
+  };
+
+  // ── zoom slider ───────────────────────────────────────────────────────────
+  window.dhSetZoom = function (z) {
+    userZoom = z;
+    const label = document.getElementById('dh-zoom-val');
+    if (label) label.textContent = z.toFixed(1) + '×';
+  };
+
+  // ── start / stop ──────────────────────────────────────────────────────────
   async function dhStartScan() {
-    const errEl = document.getElementById('dh-error');
-    if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
+    document.getElementById('dh-error').textContent = '';
+    document.getElementById('dh-error').classList.remove('show');
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      dhSetStatus('Camera API not available. Make sure the page is served over HTTPS and camera permission is granted.', true);
+      setStatus('Camera API unavailable. Serve this page over HTTPS and grant camera permission.', true);
       return;
     }
 
+    // Request the highest available resolution; browser/OS will pick what it can deliver
+    const constraints = {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width:  { ideal: 3840, min: 640 },
+        height: { ideal: 2160, min: 480 },
+      }
+    };
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch (e) {
-      const msg = (e.name === 'NotAllowedError')
-        ? 'Camera access denied. Please allow camera permission in your browser settings and try again.'
-        : 'Could not access camera: ' + e.message;
-      dhSetStatus(msg, true);
+      const msg = e.name === 'NotAllowedError'
+        ? 'Camera access denied — please allow camera permission and try again.'
+        : 'Could not open camera: ' + e.message;
+      setStatus(msg, true);
       return;
     }
 
     const video = document.getElementById('dh-video');
-    if (video) {
-      video.srcObject = stream;
-      // iOS Safari requires a user-gesture play, but since we're inside one (button tap) this works
-      await video.play().catch(() => {});
-    }
+    if (video) { video.srcObject = stream; await video.play().catch(() => {}); }
 
-    const container = document.getElementById('dh-video-container');
-    if (container) container.classList.add('active');
+    document.getElementById('dh-video-container').classList.add('active');
+    document.getElementById('dh-controls').classList.add('active');
+
+    // Reset zoom
+    userZoom = 1;
+    const slider = document.getElementById('dh-zoom-slider');
+    if (slider) slider.value = 1;
+    const label = document.getElementById('dh-zoom-val');
+    if (label) label.textContent = '1.0×';
+
+    torchOn = false;
+    const torchBtn = document.getElementById('dh-torch-btn');
+    if (torchBtn) { torchBtn.textContent = '🔦 Torch'; torchBtn.classList.remove('on'); torchBtn.disabled = false; }
+
+    passCount = 0;
+    const passEl = document.getElementById('dh-scan-passes');
+    if (passEl) { passEl.textContent = ''; passEl.classList.remove('active'); }
 
     const btn = document.getElementById('dh-scan-btn');
     if (btn) btn.innerHTML = '⬛ Stop Scanning';
 
-    dhSetStatus('Scanning — point the camera at the DevEUI QR code on the device…');
-    rafId = requestAnimationFrame(dhScanFrame);
+    setStatus('Scanning — move closer or use the zoom slider for small codes…');
+    rafId = requestAnimationFrame(scanFrame);
   }
 
-  // ── Stop scanning ────────────────────────────────────────────────────────
-  window.dhStopScan = function() {
+  window.dhStopScan = function () {
     if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-    const video     = document.getElementById('dh-video');
-    const container = document.getElementById('dh-video-container');
-    const btn       = document.getElementById('dh-scan-btn');
-    if (video)     video.srcObject = null;
-    if (container) container.classList.remove('active');
+    torchOn = false;
+    const video = document.getElementById('dh-video');
+    if (video) video.srcObject = null;
+    document.getElementById('dh-video-container').classList.remove('active');
+    document.getElementById('dh-controls').classList.remove('active');
+    const btn = document.getElementById('dh-scan-btn');
     if (btn) btn.innerHTML =
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">' +
       '<path d="M2 7V4a1 1 0 0 1 1-1h3M16 3h3a1 1 0 0 1 1 1v3M22 17v3a1 1 0 0 1-1 1h-3M8 21H5a1 1 0 0 1-1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
@@ -3529,10 +3631,11 @@ window.ebLoadConfig = ebLoadConfig;
       '<path d="M13 13h1M16 13h1M13 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Scan QR Code';
   };
 
-  window.dhToggleScan = function() {
-    if (stream) { dhStopScan(); dhSetStatus('Scanner stopped.'); }
+  window.dhToggleScan = function () {
+    if (stream) { dhStopScan(); setStatus('Scanner stopped.'); }
     else        { dhStartScan(); }
   };
+
 })();
 </script>
 </body>
