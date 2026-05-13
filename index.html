@@ -1267,7 +1267,7 @@
       word-break: break-all;
       text-align: center;
     }
-    #dh-open-btn {
+    .dh-link-btn {
       display: none;
       align-items: center;
       justify-content: center;
@@ -1277,16 +1277,16 @@
       padding: 13px 20px;
       font-size: 0.9rem;
       font-weight: 700;
-      background: var(--accent);
-      color: #000;
       border: none;
       border-radius: var(--radius);
       cursor: pointer;
       text-decoration: none;
       transition: opacity 0.15s;
     }
-    #dh-open-btn.show { display: flex; }
-    #dh-open-btn:hover { opacity: 0.88; }
+    .dh-link-btn.show { display: flex; }
+    .dh-link-btn:hover { opacity: 0.88; }
+    #dh-open-btn      { background: var(--accent); color: #000; }
+    #dh-dashboard-btn { background: var(--surface-3); color: var(--text); border: 1px solid var(--border-hi); }
     #dh-manual-row {
       display: flex;
       gap: 8px;
@@ -1343,11 +1343,20 @@
     </div>
 
     <!-- Open Grafana button -->
-    <a id="dh-open-btn" href="#" target="_blank" rel="noopener noreferrer">
+    <a id="dh-open-btn" class="dh-link-btn" href="#" target="_blank" rel="noopener noreferrer">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       Open Grafana Dashboard
+    </a>
+
+    <!-- Open Truvami Dashboard button -->
+    <a id="dh-dashboard-btn" class="dh-link-btn" href="#" target="_blank" rel="noopener noreferrer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Open Truvami Dashboard
     </a>
 
     <!-- Divider -->
@@ -3379,61 +3388,57 @@ window.ebLoadConfig = ebLoadConfig;
 })();
 </script>
 
+<!-- jsQR: pure-JS QR decoder, works on iOS Safari, Android Chrome, all modern browsers -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
 <script>
 /* ══════════════════════════════════════════
-   DEVICE HEALTH — QR SCANNER (BarcodeDetector API)
+   DEVICE HEALTH — QR SCANNER (jsQR, canvas-based — works on iOS Safari)
 ══════════════════════════════════════════ */
 (function() {
   'use strict';
 
-  const GRAFANA_BASE = 'https://grafana.truvami.com/d/dcfac9ehkt86iod/uplinks?orgId=1&from=now-3h&to=now&timezone=browser&var-devices=';
-  // Loose DevEUI pattern: 16 hex characters, optionally with colons or dashes
-  const DEVEUI_RE = /\b([0-9A-Fa-f]{2}[:\-]?){7}[0-9A-Fa-f]{2}\b/;
+  const GRAFANA_BASE    = 'https://grafana.truvami.com/d/dcfac9ehkt86iod/uplinks?orgId=1&from=now-3h&to=now&timezone=browser&var-devices=';
+  const DASHBOARD_BASE  = 'https://dashboard.truvami.com/trackers/';
+  const DEVEUI_RE = /([0-9A-Fa-f]{2}[:\-]?){7}[0-9A-Fa-f]{2}/;
 
   let stream = null;
   let rafId  = null;
-  let detector = null;
+  // Off-screen canvas used to grab video frames for jsQR
+  const canvas = document.createElement('canvas');
+  const ctx    = canvas.getContext('2d', { willReadFrequently: true });
 
   function normaliseDevEUI(raw) {
-    // Strip separators, uppercase
     return raw.replace(/[:\-\s]/g, '').toUpperCase();
   }
-
   function isValidDevEUI(str) {
     return /^[0-9A-F]{16}$/.test(str);
   }
 
   function dhSetStatus(msg, isError) {
-    const el = document.getElementById('dh-status');
-    if (el) el.textContent = msg;
+    const el  = document.getElementById('dh-status');
     const err = document.getElementById('dh-error');
+    if (el)  el.textContent  = isError ? '' : msg;
     if (err) { err.textContent = isError ? msg : ''; err.classList.toggle('show', !!isError); }
-    if (isError && el) el.textContent = '';
   }
 
-  function dhApplyDevEUI(deveui) {
-    const clean = normaliseDevEUI(deveui);
+  function dhApplyDevEUI(raw) {
+    const match = raw.match(DEVEUI_RE);
+    const candidate = match ? match[0] : raw.trim();
+    const clean = normaliseDevEUI(candidate);
     if (!isValidDevEUI(clean)) {
-      dhSetStatus('QR code detected but does not look like a DevEUI: ' + deveui, true);
+      dhSetStatus('QR code detected but doesn\'t look like a DevEUI: ' + raw.trim().slice(0, 40), true);
       return false;
     }
-
-    // Show DevEUI
+    // Show DevEUI badge
     const display = document.getElementById('dh-deveui-display');
     const val     = document.getElementById('dh-deveui-value');
-    if (display && val) {
-      val.textContent = clean;
-      display.classList.add('show');
-    }
-
-    // Update Grafana link
+    if (display && val) { val.textContent = clean; display.classList.add('show'); }
+    // Wire up Grafana button
     const btn = document.getElementById('dh-open-btn');
-    if (btn) {
-      btn.href = GRAFANA_BASE + encodeURIComponent(clean);
-      btn.classList.add('show');
-    }
-
-    dhSetStatus('DevEUI scanned successfully. Tap the button to open Grafana.');
+    if (btn) { btn.href = GRAFANA_BASE + encodeURIComponent(clean); btn.classList.add('show'); }
+    const dbtn = document.getElementById('dh-dashboard-btn');
+    if (dbtn) { dbtn.href = DASHBOARD_BASE + encodeURIComponent(clean); dbtn.classList.add('show'); }
+    dhSetStatus('DevEUI scanned — tap the button below to open Grafana.');
     return true;
   }
 
@@ -3443,42 +3448,37 @@ window.ebLoadConfig = ebLoadConfig;
     dhApplyDevEUI(inp.value.trim());
   };
 
-  async function dhScanFrame() {
+  // ── Scan loop: draw video frame → jsQR ──────────────────────────────────
+  function dhScanFrame() {
     const video = document.getElementById('dh-video');
-    if (!video || video.readyState < 2 || !detector) { rafId = requestAnimationFrame(dhScanFrame); return; }
-    try {
-      const barcodes = await detector.detect(video);
-      for (const bc of barcodes) {
-        const raw = bc.rawValue || '';
-        // Try extracting a hex DevEUI from the QR value
-        const match = raw.match(DEVEUI_RE);
-        const candidate = match ? match[0] : raw.trim();
-        if (dhApplyDevEUI(candidate)) {
-          dhStopScan();
-          return;
-        }
+    if (!video || video.readyState < 2) { rafId = requestAnimationFrame(dhScanFrame); return; }
+    if (video.videoWidth === 0)         { rafId = requestAnimationFrame(dhScanFrame); return; }
+
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    let imageData;
+    try { imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); }
+    catch (_) { rafId = requestAnimationFrame(dhScanFrame); return; }
+
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) {
+      if (dhApplyDevEUI(code.data)) {
+        dhStopScan();
+        return;
       }
-    } catch (_) {}
+    }
     rafId = requestAnimationFrame(dhScanFrame);
   }
 
+  // ── Start scanning ───────────────────────────────────────────────────────
   async function dhStartScan() {
     const errEl = document.getElementById('dh-error');
     if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
 
-    // Check BarcodeDetector support
-    if (!('BarcodeDetector' in window)) {
-      dhSetStatus('', true);
-      document.getElementById('dh-error').textContent =
-        'QR scanning is not supported in this browser. Please use Chrome on Android, or Safari 17+ on iOS. You can still enter the DevEUI manually below.';
-      document.getElementById('dh-error').classList.add('show');
-      return;
-    }
-
-    try {
-      detector = new BarcodeDetector({ formats: ['qr_code'] });
-    } catch (e) {
-      dhSetStatus('Could not initialise QR detector: ' + e.message, true);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      dhSetStatus('Camera API not available. Make sure the page is served over HTTPS and camera permission is granted.', true);
       return;
     }
 
@@ -3487,41 +3487,51 @@ window.ebLoadConfig = ebLoadConfig;
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
       });
     } catch (e) {
-      dhSetStatus('Camera access denied. Please allow camera permission and try again.', true);
+      const msg = (e.name === 'NotAllowedError')
+        ? 'Camera access denied. Please allow camera permission in your browser settings and try again.'
+        : 'Could not access camera: ' + e.message;
+      dhSetStatus(msg, true);
       return;
     }
 
     const video = document.getElementById('dh-video');
-    if (video) { video.srcObject = stream; await video.play().catch(() => {}); }
+    if (video) {
+      video.srcObject = stream;
+      // iOS Safari requires a user-gesture play, but since we're inside one (button tap) this works
+      await video.play().catch(() => {});
+    }
 
     const container = document.getElementById('dh-video-container');
     if (container) container.classList.add('active');
 
     const btn = document.getElementById('dh-scan-btn');
-    if (btn) btn.textContent = '⬛ Stop Scanning';
+    if (btn) btn.innerHTML = '⬛ Stop Scanning';
 
-    dhSetStatus('Scanning — point camera at the DevEUI QR code…');
+    dhSetStatus('Scanning — point the camera at the DevEUI QR code on the device…');
     rafId = requestAnimationFrame(dhScanFrame);
   }
 
+  // ── Stop scanning ────────────────────────────────────────────────────────
   window.dhStopScan = function() {
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     const video     = document.getElementById('dh-video');
     const container = document.getElementById('dh-video-container');
     const btn       = document.getElementById('dh-scan-btn');
-    if (video)     { video.srcObject = null; }
+    if (video)     video.srcObject = null;
     if (container) container.classList.remove('active');
-    if (btn)       btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M2 7V4a1 1 0 0 1 1-1h3M16 3h3a1 1 0 0 1 1 1v3M22 17v3a1 1 0 0 1-1 1h-3M8 21H5a1 1 0 0 1-1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="7" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="13" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="7" y="13" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M13 13h1M16 13h1M13 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Scan QR Code';
+    if (btn) btn.innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">' +
+      '<path d="M2 7V4a1 1 0 0 1 1-1h3M16 3h3a1 1 0 0 1 1 1v3M22 17v3a1 1 0 0 1-1 1h-3M8 21H5a1 1 0 0 1-1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
+      '<rect x="7" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
+      '<rect x="13" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
+      '<rect x="7" y="13" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
+      '<path d="M13 13h1M16 13h1M13 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Scan QR Code';
   };
 
   window.dhToggleScan = function() {
-    if (stream) {
-      dhStopScan();
-      dhSetStatus('Scanner stopped.');
-    } else {
-      dhStartScan();
-    }
+    if (stream) { dhStopScan(); dhSetStatus('Scanner stopped.'); }
+    else        { dhStartScan(); }
   };
 })();
 </script>
