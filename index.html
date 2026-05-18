@@ -3541,7 +3541,27 @@ window.ebLoadConfig = ebLoadConfig;
         );
         return;
       }
-      try { codeReader = new ZXing.BrowserMultiFormatReader(); }
+      try {
+        // TRY_HARDER is essential for 1D barcodes from a live video stream.
+        // Without it ZXing does a single fast pass that only reliably fires for QR codes.
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+          ZXing.BarcodeFormat.QR_CODE,
+          ZXing.BarcodeFormat.CODE_128,
+          ZXing.BarcodeFormat.CODE_39,
+          ZXing.BarcodeFormat.CODE_93,
+          ZXing.BarcodeFormat.EAN_13,
+          ZXing.BarcodeFormat.EAN_8,
+          ZXing.BarcodeFormat.UPC_A,
+          ZXing.BarcodeFormat.UPC_E,
+          ZXing.BarcodeFormat.ITF,
+          ZXing.BarcodeFormat.DATA_MATRIX,
+          ZXing.BarcodeFormat.PDF_417,
+          ZXing.BarcodeFormat.AZTEC,
+        ]);
+        codeReader = new ZXing.BrowserMultiFormatReader(hints);
+      }
       catch (e) {
         setStatus('Failed to initialise QR/barcode reader: ' + (e.message || e), true);
         return;
@@ -3574,7 +3594,7 @@ window.ebLoadConfig = ebLoadConfig;
             if (applyDevEUI(text)) {
               dhStopScan();
             } else {
-              setStatus('QR read: ' + text.slice(0, 48) + (text.length > 48 ? '...' : '') + ' (not a DevEUI)');
+              setStatus('Read: ' + text.slice(0, 48) + (text.length > 48 ? '...' : '') + ' (not a DevEUI)');
             }
           }
           // err fires every frame when no QR is found — this is normal, ignore
@@ -3602,7 +3622,7 @@ window.ebLoadConfig = ebLoadConfig;
       try { scanControls.stop(); } catch (_) {}
       scanControls = null;
     }
-    try { if (codeReader) { codeReader.reset(); } } catch (_) {}
+    try { if (codeReader) { codeReader.reset(); codeReader = null; } } catch (_) { codeReader = null; }
     var videoEl = document.getElementById('dh-video');
     if (videoEl) { videoEl.srcObject = null; videoEl.style.transform = ''; }
     var vc   = document.getElementById('dh-video-container');
