@@ -2510,9 +2510,12 @@ function ebCalc() {
   // ── GNSS fix capacity (limited by acquisition time) — for energy only ──
   //   When interval < gnss_fix_s (fastTx), LoRa events fire faster than fixes complete.
   //   Energy is counted at the max achievable fix rate; LoRa uses the full event rate.
+  //   In continuous mode the entire moving phase is ONE uninterrupted GNSS session;
+  //   no per-fix energy is added (neither for moving nor steady period).
   const gnss_fix_cap_moving = continuous ? 0
     : movement_s / Math.max(c.moving_interval_s, gnss_fix_s);
-  const gnss_fix_cap_steady = steady_s / Math.max(c.steady_interval_s, gnss_fix_s);
+  const gnss_fix_cap_steady = continuous ? 0
+    : steady_s / Math.max(c.steady_interval_s, gnss_fix_s);
   const gnss_fixes_moving = gnss_fix_cap_moving * gnss_frac;
   const gnss_fixes_steady = gnss_fix_cap_steady * gnss_frac;
   const gnss_fixes_day    = gnss_fixes_moving + gnss_fixes_steady;
@@ -2566,10 +2569,8 @@ function ebCalc() {
   let gnss_J_day = 0;
   if (c.gnss_enabled) {
     if (continuous) {
-      // Moving: GNSS stays ON for the full movement period (gnss_frac = outdoor share)
-      gnss_J_day  = gnss_fix_mA * 1e-3 * V * movement_s * gnss_frac;
-      // Steady: per-fix (gnss_fixes_steady already includes gnss_frac)
-      gnss_J_day += gnss_fixes_steady * E_gnss_fix;
+      // One uninterrupted GNSS session for the full movement period — no per-fix overhead
+      gnss_J_day = gnss_fix_mA * 1e-3 * V * movement_s * gnss_frac;
     } else {
       gnss_J_day = gnss_fixes_day * E_gnss_fix;
     }
@@ -2710,12 +2711,18 @@ function ebCalc() {
       color:      '#f5a623',
       I:          gnss_fix_mA.toFixed(1)+' mA'+(continuous?' cont.':''),
       t:          continuous
-                    ? (movement_s/3600).toFixed(1)+' h + '+gnss_fix_s+' s/fix'
+                    ? (movement_s/3600).toFixed(1)+' h'
                     : gnss_fix_s+' s',
-      ePerEvent:  c.gnss_enabled ? fmtJ(E_gnss_fix)+'/fix' : 'disabled',
+      ePerEvent:  c.gnss_enabled
+                    ? (continuous
+                        ? fmtJ(gnss_J_day)+' total (1 session)'
+                        : fmtJ(E_gnss_fix)+'/fix')
+                    : 'disabled',
       eventsDay:  c.gnss_enabled
-                    ? gnss_fixes_day.toFixed(1)+(fastTx?' (capped by acq.)':'')
-                        +' ('+Math.round(gnss_frac*100)+'% of events)'
+                    ? (continuous
+                        ? '1 session ('+Math.round(gnss_frac*100)+'% outdoor)'
+                        : gnss_fixes_day.toFixed(1)+(fastTx?' (capped by acq.)':'')
+                            +' ('+Math.round(gnss_frac*100)+'% of events)')
                     : '0',
       J:          gnss_J_day,
     },
@@ -2794,11 +2801,12 @@ function ebCalc() {
   // Summary line below table
   const summaryEl = document.getElementById('eb_stat_summary');
   if (summaryEl) {
-    const gnssLabel = isAssisted ? 'assisted ('+gnss_ul+' UL/fix)' : 'auto (1 UL/fix)';
+    const gnssLabel = continuous ? 'continuous session' : isAssisted ? 'assisted ('+gnss_ul+' UL/fix)' : 'auto (1 UL/fix)';
+    const gnssCount = continuous ? '1 session' : gnss_fixes_day.toFixed(1)+'/day';
     summaryEl.innerHTML =
       `<span style="color:var(--text)">Position events:</span> ${pos_events_day.toFixed(1)}/day `+
       `(${pos_events_moving.toFixed(1)} moving + ${pos_events_steady.toFixed(1)} steady) &nbsp;·&nbsp; `+
-      `<span style="color:var(--text)">GNSS fixes:</span> ${gnss_fixes_day.toFixed(1)}/day (${Math.round(gnss_frac*100)}% → ${gnssLabel}) &nbsp;·&nbsp; `+
+      `<span style="color:var(--text)">GNSS:</span> ${gnssCount} (${Math.round(gnss_frac*100)}% → ${gnssLabel}) &nbsp;·&nbsp; `+
       `<span style="color:var(--text)">WiFi scans:</span> ${wifi_scans_day.toFixed(1)}/day (${Math.round(wifi_frac*100)}% → 1 UL/scan) &nbsp;·&nbsp; `+
       `<span style="color:var(--text)">Logical msgs:</span> ${total_msgs_day.toFixed(1)}/day `+
       `(${lora_msgs_from_gnss.toFixed(0)} GNSS + ${lora_msgs_from_wifi.toFixed(0)} WiFi + ${hb_per_day.toFixed(0)} HB) &nbsp;·&nbsp; `+
