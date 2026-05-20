@@ -809,6 +809,12 @@
             <label for="eb_bat_mAh">Battery capacity (mAh)</label>
             <input type="number" id="eb_bat_mAh" value="450" min="1" max="100000" step="1">
           </div>
+        </div>
+        <div class="frow">
+          <div class="field">
+            <label for="eb_voltage">Nominal voltage (V)</label>
+            <input type="number" id="eb_voltage" value="3.7" min="0.1" max="30" step="0.1">
+          </div>
           <div class="field">
             <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Equivalent (J)</label>
             <div class="result-box" id="eb_batcap_display" style="padding:8px 11px;min-height:34px;font-size:0.82rem;line-height:1.4">—</div>
@@ -2412,6 +2418,7 @@ function ebGetConfig() {
     device:            g('device').value,
     chem:              g('chem').value,
     bat_mAh:           fv('bat_mAh',  450),
+    voltage:           fv('voltage',  3.7),
     sf:                iv('sf',        9),
     batch_size:        Math.max(1, iv('batch_size', 1)),
     p1:                fv('p1',  50) / 100,
@@ -2450,7 +2457,7 @@ function ebCalc() {
   const dev = DEVICES[c.device];
   if (!dev) return;
   const chem = CHEMISTRIES[c.chem] || CHEMISTRIES.lipo;
-  const V    = dev.V;
+  const V    = c.voltage;
   const setCell = (id, v) => { const el = document.getElementById('eb_' + id); if (el) el.textContent = v; };
   const fmtJ = j => j < 1e-3 ? (j*1e6).toFixed(1)+' \u00b5J' : j < 1 ? (j*1e3).toFixed(2)+' mJ' : j.toFixed(3)+' J';
 
@@ -2891,6 +2898,7 @@ function ebOnDeviceChange() {
   if (!dev) return;
   eb('bat_mAh').value = dev.defBat_mAh;
   eb('chem').value    = dev.defChem;
+  eb('voltage').value = dev.V;
   eb('gnss_en').checked = true;
 
   // Populate event param inputs
@@ -2939,7 +2947,7 @@ function ebOnDeviceChange() {
 
 // Wire up all inputs
 function ebInit() {
-  ['device','chem','bat_mAh','design_margin','sf','batch_size','p1','p2','p3','indoor_pct',
+  ['device','chem','bat_mAh','voltage','design_margin','sf','batch_size','p1','p2','p3','indoor_pct',
    'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
    'wifi_en','gnss_en','ble_en',
    'ev_idle_uA','ev_gnss_a_mA','ev_gnss_a_s','ev_gnss_auto_mA','ev_gnss_auto_s',
@@ -3310,7 +3318,7 @@ window.ebExportPDF = async function(btn) {
 
 function ebSaveConfig() {
   const ids = [
-    'device','chem','bat_mAh','design_margin',
+    'device','chem','bat_mAh','voltage','design_margin',
     'sf','batch_size','p1','p2','p3','indoor_pct',
     'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
     'wifi_en','gnss_en','ble_en',
@@ -3347,7 +3355,7 @@ function ebLoadConfig(input) {
     try {
       const cfg = JSON.parse(e.target.result);
       const ids = [
-        'device','chem','bat_mAh','design_margin',
+        'device','chem','bat_mAh','voltage','design_margin',
         'sf','batch_size','p1','p2','p3','indoor_pct',
         'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
         'wifi_en','gnss_en','ble_en',
@@ -3375,6 +3383,7 @@ function ebLoadConfig(input) {
       }
       // Re-apply per-event values and checkboxes overwritten by ebOnDeviceChange
       const reapply = [
+        'voltage',
         'ev_idle_uA','ev_gnss_a_mA','ev_gnss_a_s',
         'ev_gnss_auto_mA','ev_gnss_auto_s',
         'ev_wifi_mA','ev_wifi_s','ev_ble_mA','ev_ble_s',
