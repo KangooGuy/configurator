@@ -1456,7 +1456,7 @@ function selectMode(mode) {
    DEVICE SELECTOR
 ══════════════════════════════════════════ */
 const PROTO_LABELS = {
-  tagsl:      'BLE · p128/134/136',
+  tagsl:      'BLE · p128/134/136/137',
   tagxl:      'TLV · p151',
   beaconxl:   'TLV · p151 · Eddystone',
   lumen:      'TLV v2 · p151',
@@ -1704,6 +1704,42 @@ const SL_PORTS = [
       <tr><td>3</td><td>VDOP × 10</td><td>uint8 (0.1 gran.)</td></tr>
     </tbody></table>`,
     hint:'<div class="div"></div><div class="hint-box"><strong>DOP:</strong> Lower = stricter fix quality. Default 50 = DOP 5.0.</div>' },
+
+  /* ---- PORT 137 ---- */
+  { id:'p137', port:137, label:'Port 137 — Data Rate Configuration',
+    desc:'1 byte. Set the LoRaWAN data rate immediately and store it in non-volatile memory. Firmware v3.3.5+.',
+    form(){ return `<table class="cfg-table"><thead><tr><th>Field</th><th>Value</th><th>Hex</th></tr></thead><tbody>
+      <tr><td>data_rate [uint8]<br><span style="font-size:0.73rem;color:var(--muted)">3-bit encoding · applied immediately &amp; stored in NVM</span></td>
+        <td><select id="sl_p137_dr" onchange="slUpd8(this,'sl_p137_drH')">
+          <option value="7">111 — ADR</option>
+          <option value="0">000 — DR5 SF7</option>
+          <option value="1">001 — DR4 SF8</option>
+          <option value="2" selected>010 — DR3 SF9 / US_SF7</option>
+          <option value="3">011 — DR2 SF10</option>
+          <option value="4">100 — DR1 SF11</option>
+          <option value="5">101 — DR0 SF12</option>
+          <option value="6">110 — DR1–3 array</option>
+        </select></td>
+        <td><input type="text" id="sl_p137_drH" readonly></td>
+      </tr></tbody></table>`; },
+    initHex(){ const el=document.getElementById('sl_p137_dr'); if(el) slUpd8(el,'sl_p137_drH'); },
+    generate(){ return sl_h2(slg('sl_p137_dr')); },
+    decode(bs){
+      const v=parseInt(bs.slice(0,2),16);
+      if(v>7) throw new Error(`data_rate must be 0–7 (got ${v}).`);
+      const el=document.getElementById('sl_p137_dr'); if(el) el.value=String(v);
+      this.initHex();
+    },
+    layout:`<table class="ref-table"><thead><tr><th>Byte</th><th>Field</th><th>Type</th></tr></thead><tbody>
+      <tr><td>0</td><td>data_rate</td><td>uint8 (0–7)</td></tr>
+    </tbody></table>`,
+    hint:`<div class="div"></div><div class="hint-box">
+      <strong>Data rate encoding (3-bit value):</strong><br>
+      000 = DR5 SF7 &nbsp;·&nbsp; 001 = DR4 SF8 &nbsp;·&nbsp; 010 = DR3 SF9/US_SF7<br>
+      011 = DR2 SF10 &nbsp;·&nbsp; 100 = DR1 SF11 &nbsp;·&nbsp; 101 = DR0 SF12<br>
+      110 = DR1–3 array &nbsp;·&nbsp; 111 = ADR<br>
+      <strong>Applied immediately</strong> and stored in non-volatile memory. Requires firmware v3.3.5+.
+    </div>` },
 ];
 
 /* ── Port engine ── */
