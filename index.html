@@ -824,7 +824,7 @@
         <div class="frow">
           <div class="field">
             <label for="eb_design_margin">Safety design margin (%)</label>
-            <input type="number" id="eb_design_margin" value="20" min="0" max="200" step="1">
+            <input type="number" id="eb_design_margin" value="30" min="0" max="200" step="1">
           </div>
           <div class="field">
             <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Net consumption with margin</label>
@@ -836,7 +836,7 @@
       <!-- LoRa Configuration -->
       <div class="card">
         <h2>LoRa Configuration</h2>
-        <div class="card-sub">LR1110 store-and-forward: each message is retried up to 3 times. Set the per-attempt reception probability to model your network coverage.</div>
+        <div class="card-sub">LR1110 store-and-forward. Set the expected number of transmissions per message directly to model your network coverage (typical range: 1.0–3.0).</div>
         <div class="frow" style="margin-top:10px">
           <div class="field">
             <label for="eb_sf">Spreading Factor (EU868)</label>
@@ -850,30 +850,11 @@
             </select>
           </div>
           <div class="field">
-            <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Expected transmissions / msg</label>
-            <div class="result-box" id="eb_stat_etx" style="padding:8px 11px;min-height:34px;font-size:0.9rem;font-weight:700">—</div>
+            <label for="eb_etx">Expected transmissions / msg</label>
+            <input type="number" id="eb_etx" value="1.2" min="1" max="3" step="0.001">
           </div>
         </div>
-        <div style="margin-top:8px">
-          <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:8px">
-            Reception probability per attempt (store &amp; forward, max 3 retries)
-          </label>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-            <div class="field" style="margin-bottom:0">
-              <label for="eb_p1">Attempt 1 (%)</label>
-              <input type="number" id="eb_p1" value="50" min="0" max="100" step="1">
-            </div>
-            <div class="field" style="margin-bottom:0">
-              <label for="eb_p2">Attempt 2 (%)</label>
-              <input type="number" id="eb_p2" value="75" min="0" max="100" step="1">
-            </div>
-            <div class="field" style="margin-bottom:0">
-              <label for="eb_p3">Attempt 3 (%)</label>
-              <input type="number" id="eb_p3" value="100" min="0" max="100" step="1">
-            </div>
-          </div>
-        </div>
-        <div class="frow" style="margin-top:10px">
+        <div class="frow" style="margin-top:8px">
           <div class="field">
             <label for="eb_batch_size">Batch size (1 confirmed per N msgs)</label>
             <input type="number" id="eb_batch_size" value="10" min="1" max="100" step="1">
@@ -884,7 +865,8 @@
           </div>
         </div>
         <div class="hint-box" style="margin-top:8px;font-size:0.76rem">
-          <strong>E[tx] = 1 + (1−p₁) + (1−p₁)(1−p₂)</strong> &nbsp;·&nbsp; defaults → E[tx] = 1.625<br>
+          <strong>E[tx]</strong> = average number of LoRa transmissions per logical message (1.0 = perfect reception, 3.0 = max retries always needed).<br>
+          Formula: <strong>E[tx] = 1 + (1−p₁) + (1−p₁)(1−p₂)</strong> — e.g. p₁=50%, p₂=75% → E[tx] = 1.625 &nbsp;·&nbsp; default 1.2 ≈ p₁=80%, p₂=100%<br>
           <strong>Confirmed</strong> (every N): TX + RX1 + RX2 + S&amp;F retries &nbsp;·&nbsp; <strong>Unconfirmed</strong> (others): TX only, no DL, no retry<br>
           Airtime from Semtech AN1200.13, EU868, BW=125 kHz, CR=4/5, 51+13 bytes, I<sub>TX</sub>=35 mA, I<sub>RX</sub>=10 mA
         </div>
@@ -897,11 +879,11 @@
         <div class="frow" style="margin-top:10px">
           <div class="field">
             <label for="eb_moving_interval_s">Moving interval (s)</label>
-            <input type="number" id="eb_moving_interval_s" value="300" min="10" max="86400" step="10">
+            <input type="number" id="eb_moving_interval_s" value="600" min="10" max="86400" step="10">
           </div>
           <div class="field">
             <label for="eb_steady_interval_s">Steady interval (s)</label>
-            <input type="number" id="eb_steady_interval_s" value="3600" min="60" max="86400" step="60">
+            <input type="number" id="eb_steady_interval_s" value="7200" min="60" max="86400" step="60">
           </div>
         </div>
         <div class="frow">
@@ -2690,12 +2672,10 @@ function ebGetConfig() {
     voltage:           fv('voltage',  3.7),
     sf:                iv('sf',        9),
     batch_size:        Math.max(1, iv('batch_size', 10)),
-    p1:                fv('p1',  50) / 100,
-    p2:                fv('p2',  75) / 100,
-    p3:                fv('p3', 100) / 100,
+    etx:               Math.max(1, Math.min(3, fv('etx', 1.2))),
     indoor_pct:        fv('indoor_pct', 20) / 100,
-    moving_interval_s: fv('moving_interval_s', 300),
-    steady_interval_s: fv('steady_interval_s', 3600),
+    moving_interval_s: fv('moving_interval_s', 600),
+    steady_interval_s: fv('steady_interval_s', 7200),
     movement_h:        fv('movement_h', 3),
     hb_interval_s:     fv('hb_interval_s', 86400),
     wifi_enabled:      bv('wifi_en'),
@@ -2722,7 +2702,7 @@ function ebGetConfig() {
     backup_bat_en:     bv('backup_bat_en'),
     backup_bat_chem:   g('backup_bat_chem') ? g('backup_bat_chem').value : 'primary',
     backup_bat_mAh:    fv('backup_bat_mAh', 200),
-    design_margin:     fv('design_margin', 20) / 100,  // fraction e.g. 0.20
+    design_margin:     fv('design_margin', 30) / 100,  // fraction e.g. 0.30
   };
 }
 
@@ -2825,12 +2805,8 @@ function ebCalc() {
   const loraToa_s       = LORA_TOA_S[c.sf]           || LORA_TOA_S[9];
   const lora_J_attempt  = loraCharge_uAs * 1e-6 * V;
 
-  // S&F retry model: every message is retried until received (max 3 attempts)
-  // E[tx] = expected transmissions per logical message
-  const p1  = Math.min(1, Math.max(0, c.p1));
-  const p2  = Math.min(1, Math.max(0, c.p2));
-  const q1  = 1 - p1, q2 = 1 - p2;
-  const etx = 1 + q1 + q1 * q2;
+  // E[tx]: expected transmissions per logical message — set directly by user
+  const etx = Math.max(1, Math.min(3, c.etx));
 
   // Message count:
   //   GNSS event  → gnss_ul logical messages (1 for auto, 2 for assisted/Tag XL)
@@ -3142,10 +3118,6 @@ function ebCalc() {
     loraToa_s, lora_J_avg_msg, fmtLife,
   };
 
-  // ── E[tx] display (still in LoRa config card) ──
-  const etxEl = document.getElementById('eb_stat_etx');
-  if (etxEl) etxEl.textContent = etx.toFixed(3)+' tx/msg';
-
   // Update BLE LoRa UL count preview
   const blePrev = document.getElementById('eb_ble_lora_ul_preview');
   if (blePrev) blePrev.textContent = ble_lora_ul_per_scan;
@@ -3344,7 +3316,7 @@ function ebOnDeviceChange() {
 
 // Wire up all inputs
 function ebInit() {
-  ['device','chem','bat_mAh','voltage','design_margin','sf','batch_size','p1','p2','p3','indoor_pct',
+  ['device','chem','bat_mAh','voltage','design_margin','sf','batch_size','etx','indoor_pct',
    'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
    'wifi_en','gnss_en','ble_en','ble_max_beacons',
    'ev_idle_uA','ev_gnss_a_mA','ev_gnss_a_s','ev_gnss_auto_mA','ev_gnss_auto_s',
@@ -3722,7 +3694,7 @@ window.ebExportPDF = async function(btn) {
 function ebSaveConfig() {
   const ids = [
     'device','chem','bat_mAh','voltage','design_margin',
-    'sf','batch_size','p1','p2','p3','indoor_pct',
+    'sf','batch_size','etx','indoor_pct',
     'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
     'wifi_en','gnss_en','ble_en',
     'ev_idle_uA',
@@ -3759,7 +3731,7 @@ function ebLoadConfig(input) {
       const cfg = JSON.parse(e.target.result);
       const ids = [
         'device','chem','bat_mAh','voltage','design_margin',
-        'sf','batch_size','p1','p2','p3','indoor_pct',
+        'sf','batch_size','etx','indoor_pct',
         'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
         'wifi_en','gnss_en','ble_en',
         'ev_idle_uA',
