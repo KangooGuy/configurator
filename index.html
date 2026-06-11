@@ -925,7 +925,8 @@
         </div>
         <div class="hint-box" style="font-size:0.74rem;margin-top:4px">
           Fixes/day = <strong>movement_h × 3600 / moving_interval</strong> + <strong>(24 − movement_h) × 3600 / steady_interval</strong><br>
-          Outdoor fixes → assisted GNSS &nbsp;·&nbsp; Indoor fixes → WiFi scan (or autonomous GNSS)
+          Outdoor fixes → assisted GNSS (all devices) &nbsp;·&nbsp; Indoor fixes → WiFi scan<br>
+          <span style="color:var(--accent)">Lumen &amp; Cellular:</span> assisted GNSS only (outdoor) — no autonomous fix
         </div>
         <div class="checks" style="margin-top:10px">
           <label class="check"><input type="checkbox" id="eb_gnss_en" checked> GNSS enabled</label>
@@ -953,7 +954,7 @@
               <td style="padding:7px 8px;color:var(--muted)">Idle</td>
               <td style="padding:7px 8px">
                 <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
-                  <input type="number" id="eb_ev_idle_uA" value="25" min="0.1" max="10000" step="0.1"
+                  <input type="number" id="eb_ev_idle_uA" value="10" min="0.1" max="10000" step="0.1"
                     style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
                   <span style="color:var(--muted);font-size:0.78rem;white-space:nowrap">µA</span>
                 </div>
@@ -961,10 +962,10 @@
               <td style="padding:7px 8px;text-align:right;color:var(--muted);font-family:var(--mono);font-size:0.8rem">86 400 s (fixed)</td>
             </tr>
             <tr id="eb_ev_gnss_a_row">
-              <td style="padding:7px 8px;color:var(--muted)">GNSS fix — assisted outdoor <span style="font-size:0.7rem;background:rgba(0,221,179,0.1);color:var(--accent);border:1px solid rgba(0,221,179,0.25);border-radius:4px;padding:1px 5px">≈ 0.1 J/fix</span></td>
+              <td style="padding:7px 8px;color:var(--muted)">GNSS fix — assisted outdoor <span style="font-size:0.7rem;background:rgba(0,221,179,0.1);color:var(--accent);border:1px solid rgba(0,221,179,0.25);border-radius:4px;padding:1px 5px">≈ 0.07 J/fix (Lumen default)</span></td>
               <td style="padding:7px 8px">
                 <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
-                  <input type="number" id="eb_ev_gnss_a_mA" value="8" min="0.1" max="500" step="0.1"
+                  <input type="number" id="eb_ev_gnss_a_mA" value="5" min="0.1" max="500" step="0.1"
                     style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
                   <span style="color:var(--muted);font-size:0.78rem">mA</span>
                 </div>
@@ -998,7 +999,7 @@
               <td style="padding:7px 8px;color:var(--muted)">WiFi scan</td>
               <td style="padding:7px 8px">
                 <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
-                  <input type="number" id="eb_ev_wifi_mA" value="12.6" min="0.1" max="500" step="0.1"
+                  <input type="number" id="eb_ev_wifi_mA" value="10.5" min="0.1" max="500" step="0.1"
                     style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
                   <span style="color:var(--muted);font-size:0.78rem">mA</span>
                 </div>
@@ -1029,19 +1030,29 @@
               </td>
             </tr>
             <tr id="eb_ev_ble_row" style="display:none">
-              <td style="padding:7px 8px;color:var(--muted)">BLE scan <span style="font-size:0.7rem;background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3);border-radius:4px;padding:1px 5px">Tag S only</span></td>
+              <td style="padding:7px 8px;color:var(--muted)">BLE scan <span style="font-size:0.7rem;background:rgba(0,221,179,0.1);color:var(--accent);border:1px solid rgba(0,221,179,0.25);border-radius:4px;padding:1px 5px">Tag S/L/XL · Lumen · Cellular</span></td>
               <td style="padding:7px 8px">
                 <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
-                  <input type="number" id="eb_ev_ble_mA" value="24" min="0.1" max="500" step="0.1"
+                  <input type="number" id="eb_ev_ble_mA" value="3.6" min="0.1" max="500" step="0.1"
                     style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
                   <span style="color:var(--muted);font-size:0.78rem">mA</span>
                 </div>
               </td>
               <td style="padding:7px 8px">
                 <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
-                  <input type="number" id="eb_ev_ble_s" value="3.5" min="0.1" max="60" step="0.1"
+                  <input type="number" id="eb_ev_ble_s" value="5.0" min="0.1" max="60" step="0.1"
                     style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
                   <span style="color:var(--muted);font-size:0.78rem">s</span>
+                </div>
+              </td>
+            </tr>
+            <tr id="eb_ble_beacons_row" style="display:none">
+              <td style="padding:7px 8px;color:var(--muted)">Max BLE beacons / scan <span style="font-size:0.7rem;background:rgba(0,221,179,0.1);color:var(--accent);border:1px solid rgba(0,221,179,0.25);border-radius:4px;padding:1px 5px">6 MACs / LoRa TX</span></td>
+              <td colspan="2" style="padding:7px 8px">
+                <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+                  <input type="number" id="eb_ble_max_beacons" value="12" min="1" max="120" step="1"
+                    style="width:72px;text-align:right;padding:5px 7px;font-size:0.82rem">
+                  <span style="color:var(--muted);font-size:0.78rem;white-space:nowrap">beacons → <span id="eb_ble_lora_ul_preview" style="color:var(--accent)">2</span> LoRa UL / scan</span>
                 </div>
               </td>
             </tr>
@@ -1057,14 +1068,25 @@
 
       <!-- Harvesting -->
       <div class="card" id="eb_harvest_section">
-        <h2>Energy Harvesting (OPV)</h2>
-        <div class="card-sub">Organic Photovoltaic. Values from Dracula Technologies — PMIC efficiency η=0.90 applied.</div>
+        <h2>Energy Harvesting (PV Cell)</h2>
+        <div class="card-sub">Select the photovoltaic cell type. PMIC efficiency η=0.90 applied. Indoor cells are optimised for ambient light; outdoor cells require direct solar exposure.</div>
         <label class="check" style="margin-bottom:12px;margin-top:4px;display:inline-flex">
           <input type="checkbox" id="eb_harvest_en"> Enable harvesting
         </label>
+        <div class="field">
+          <label for="eb_pv_type">PV cell type</label>
+          <select id="eb_pv_type">
+            <option value="opv_dracula" selected>🏠 Dracula OPV (organic) — indoor ambient, PCE ~5%</option>
+            <option value="amorphous_si">🏠 Amorphous Silicon (a-Si) — indoor ambient, PCE ~6–8%</option>
+            <option value="dssc">🏠 DSSC (Dye-Sensitised) — indoor ambient, PCE ~10–14%</option>
+            <option value="perovskite">🏠 Perovskite — indoor ambient, PCE ~20–26% (emerging)</option>
+            <option value="poly_si">☀️ Polycrystalline Silicon — outdoor solar, PCE ~15–17%</option>
+            <option value="mono_si">☀️ Monocrystalline Silicon — outdoor solar, PCE ~18–22%</option>
+          </select>
+        </div>
         <div class="frow">
           <div class="field">
-            <label for="eb_opv_area">OPV active area (cm²)</label>
+            <label for="eb_opv_area">PV active area (cm²)</label>
             <input type="number" id="eb_opv_area" value="35" min="0.1" max="500" step="0.5">
           </div>
           <div class="field">
@@ -1072,9 +1094,16 @@
             <select id="eb_opv_lux">
               <option value="0">0 lux — dark</option>
               <option value="50">50 lux — dim indoor</option>
+              <option value="100">100 lux — corridor / storage</option>
               <option value="200">200 lux — office</option>
-              <option value="500" selected>500 lux — bright indoor</option>
-              <option value="1000">1000 lux — full outdoor</option>
+              <option value="300">300 lux — well-lit office</option>
+              <option value="400">400 lux — bright office</option>
+              <option value="500" selected>500 lux — bright indoor / window</option>
+              <option value="600">600 lux — overcast outdoor / large window</option>
+              <option value="700">700 lux — indirect outdoor</option>
+              <option value="800">800 lux — outdoor shade</option>
+              <option value="900">900 lux — outdoor haze</option>
+              <option value="1000">1000 lux — full outdoor / direct sun</option>
             </select>
           </div>
         </div>
@@ -1089,14 +1118,49 @@
           </div>
         </div>
         <table style="width:100%;font-size:0.74rem;color:var(--muted);margin-top:6px;border-collapse:collapse">
-          <thead><tr><td style="padding:4px 8px;font-weight:700;color:var(--text)">Lux</td><td style="padding:4px 8px">4 h/d</td><td style="padding:4px 8px">8 h/d</td><td style="padding:4px 8px">12 h/d</td><td style="padding:4px 8px;font-size:0.68rem">@35 cm² raw</td></tr></thead>
+          <thead><tr><td style="padding:4px 8px;font-weight:700;color:var(--text)">Lux</td><td style="padding:4px 8px">4 h/d</td><td style="padding:4px 8px">8 h/d</td><td style="padding:4px 8px">12 h/d</td><td style="padding:4px 8px;font-size:0.68rem">@35 cm² (Dracula OPV base)</td></tr></thead>
           <tbody>
-            <tr><td style="padding:3px 8px;color:var(--text)">50</td><td style="padding:3px 8px">0.8 J</td><td style="padding:3px 8px">1.6 J</td><td style="padding:3px 8px">2.4 J</td><td></td></tr>
-            <tr><td style="padding:3px 8px;color:var(--text)">200</td><td style="padding:3px 8px">3.7 J</td><td style="padding:3px 8px">7.4 J</td><td style="padding:3px 8px">11.1 J</td><td></td></tr>
-            <tr><td style="padding:3px 8px;color:var(--text)">500</td><td style="padding:3px 8px">9.5 J</td><td style="padding:3px 8px">18.9 J</td><td style="padding:3px 8px">28.4 J</td><td></td></tr>
-            <tr><td style="padding:3px 8px;color:var(--text)">1000</td><td style="padding:3px 8px">18.4 J</td><td style="padding:3px 8px">36.8 J</td><td style="padding:3px 8px">55.3 J</td><td></td></tr>
+            <tr><td style="padding:3px 8px;color:var(--text)">50</td><td style="padding:3px 8px">0.7 J</td><td style="padding:3px 8px">1.4 J</td><td style="padding:3px 8px">2.2 J</td><td></td></tr>
+            <tr><td style="padding:3px 8px;color:var(--text)">200</td><td style="padding:3px 8px">3.3 J</td><td style="padding:3px 8px">6.7 J</td><td style="padding:3px 8px">10.0 J</td><td></td></tr>
+            <tr><td style="padding:3px 8px;color:var(--text)">500</td><td style="padding:3px 8px">8.6 J</td><td style="padding:3px 8px">17.0 J</td><td style="padding:3px 8px">25.6 J</td><td></td></tr>
+            <tr><td style="padding:3px 8px;color:var(--text)">1000</td><td style="padding:3px 8px">16.6 J</td><td style="padding:3px 8px">33.1 J</td><td style="padding:3px 8px">49.8 J</td><td></td></tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Backup Battery -->
+      <div class="card" id="eb_backup_bat_section" style="display:none">
+        <h2>Backup Battery (Non-rechargeable)</h2>
+        <div class="card-sub">A non-rechargeable primary cell used as fallback when the main rechargeable battery is depleted. Its capacity is added to total available energy.</div>
+        <label class="check" style="margin-bottom:12px;margin-top:4px;display:inline-flex">
+          <input type="checkbox" id="eb_backup_bat_en"> Enable backup battery
+        </label>
+        <div class="frow">
+          <div class="field">
+            <label for="eb_backup_bat_chem">Chemistry</label>
+            <select id="eb_backup_bat_chem">
+              <option value="cr2032">CR2032 / Li-MnO₂ (3.0 V) — 0.5%/mo self-discharge · coin cell, 225 mAh typical</option>
+              <option value="primary" selected>Primary Li / Energizer L91 (3.6 V) — 0.5%/mo · AA-size, high energy density</option>
+              <option value="lisocl2">Li-SOCl₂ industrial (3.6 V) — 1.0%/mo · highest capacity, ideal for long shelf life</option>
+              <option value="lto">Li-Titanate LTO (2.4 V) — 0.8%/mo · very wide temp range (−40°C to +60°C)</option>
+              <option value="lifepo4">LiFePO₄ primary (3.2 V) — 2.0%/mo · thermally stable, safe chemistry</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field">
+            <label for="eb_backup_bat_mAh">Backup capacity (mAh)</label>
+            <input type="number" id="eb_backup_bat_mAh" value="200" min="1" max="50000" step="1">
+          </div>
+          <div class="field">
+            <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Backup energy (J)</label>
+            <div class="result-box" id="eb_backup_bat_display" style="padding:8px 11px;min-height:34px;font-size:0.82rem">—</div>
+          </div>
+        </div>
+        <div class="hint-box" style="margin-top:8px;font-size:0.76rem">
+          <strong>Self-discharge rates:</strong> CR2032 ≈ 0.5%/mo · L91 ≈ 0.5%/mo · Li-SOCl₂ ≈ 1%/mo · LTO ≈ 0.8%/mo · LiFePO₄ ≈ 2%/mo<br>
+          Backup capacity is added to the main battery total for lifetime calculation. In practice the backup activates only after the rechargeable is exhausted.
+        </div>
       </div>
     </div>
 
@@ -2315,27 +2379,77 @@ const LORA_TX_ONLY_UAS = {
 // OPV harvest table (J per day) – raw OPV output before PMIC losses
 // Source: Energy_budget_ Sheet2, OPV area = 35 cm², excludes storage losses
 // Format: lux → [J/day @4h, J/day @8h, J/day @12h]
+// Dracula OPV (organic photovoltaic) – optimised for indoor ambient light
 const OPV_TABLE = {
     0:    [0,    0,    0   ],
     50:   [0.8,  1.6,  2.4 ],
+    100:  [1.6,  3.2,  4.8 ],
     200:  [3.7,  7.4,  11.1],
+    300:  [5.6,  11.2, 16.8],
+    400:  [7.5,  15.0, 22.5],
     500:  [9.5,  18.9, 28.4],
+    600:  [11.2, 22.4, 33.6],
+    700:  [13.0, 26.0, 39.0],
+    800:  [14.7, 29.4, 44.1],
+    900:  [16.5, 33.0, 49.5],
     1000: [18.4, 36.8, 55.3],
 };
 const OPV_PMIC_EFF = 0.90; // PMIC/charger efficiency
 
-function interpolateOPV(lux, hoursPerDay) {
+// PV cell type profiles — efficiency relative to Dracula OPV base at same lux
+// type: 'indoor' = optimised for indoor ambient light, 'outdoor' = optimised for direct solar
+const PV_PROFILES = {
+  opv_dracula: {
+    label: 'Dracula OPV (organic)',
+    application: 'indoor',
+    note: 'Indoor ambient light specialist — PCE ~5%, peak at low lux (50–1000 lx)',
+    scale: 1.00,
+  },
+  amorphous_si: {
+    label: 'Amorphous Silicon (a-Si)',
+    application: 'indoor',
+    note: 'Indoor ambient — PCE ~6–8%, good low-light response, widely available',
+    scale: 1.15,
+  },
+  dssc: {
+    label: 'DSSC (Dye-Sensitised)',
+    application: 'indoor',
+    note: 'Indoor ambient — PCE ~10–14%, excellent low-lux performance',
+    scale: 1.6,
+  },
+  poly_si: {
+    label: 'Polycrystalline Silicon',
+    application: 'outdoor',
+    note: 'Outdoor solar — PCE ~15–17%, requires direct sunlight (≥5000 lx)',
+    scale: 2.2,
+  },
+  mono_si: {
+    label: 'Monocrystalline Silicon',
+    application: 'outdoor',
+    note: 'Outdoor solar — PCE ~18–22%, best outdoor efficiency, poor indoor performance',
+    scale: 2.8,
+  },
+  perovskite: {
+    label: 'Perovskite',
+    application: 'indoor',
+    note: 'Indoor ambient — PCE ~20–26%, emerging technology, very high indoor efficiency',
+    scale: 2.1,
+  },
+};
+
+function interpolateOPV(lux, hoursPerDay, pvType) {
     // lux clamped 0..1000, hours 0..24
     lux = Math.max(0, Math.min(1000, lux));
     hoursPerDay = Math.max(0, Math.min(24, hoursPerDay));
-    const luxKeys = [0, 50, 200, 500, 1000];
+    const pvScale = (PV_PROFILES[pvType] || PV_PROFILES.opv_dracula).scale;
+    const luxKeys = Object.keys(OPV_TABLE).map(Number).sort((a,b)=>a-b);
     // Find bracket
-    let lo = 0, hi = 0;
+    let lo = 0, hi = luxKeys[luxKeys.length-1];
     for (let i = 0; i < luxKeys.length - 1; i++) {
         if (lux >= luxKeys[i] && lux <= luxKeys[i+1]) { lo = luxKeys[i]; hi = luxKeys[i+1]; break; }
     }
-    if (lux >= 1000) { lo = 500; hi = 1000; }
-    // Interpolate at 4h and 8h for hours interpolation
+    if (lux >= luxKeys[luxKeys.length-1]) { lo = luxKeys[luxKeys.length-2]; hi = luxKeys[luxKeys.length-1]; }
+    // Interpolate at 4h, 8h, 12h
     const t = lo === hi ? 1 : (lux - lo) / (hi - lo);
     const at4h = OPV_TABLE[lo][0] + t * (OPV_TABLE[hi][0] - OPV_TABLE[lo][0]);
     const at8h = OPV_TABLE[lo][1] + t * (OPV_TABLE[hi][1] - OPV_TABLE[lo][1]);
@@ -2345,7 +2459,7 @@ function interpolateOPV(lux, hoursPerDay) {
     if (hoursPerDay <= 4)       rawJ = at4h * hoursPerDay / 4;
     else if (hoursPerDay <= 8)  rawJ = at4h + (at8h - at4h) * (hoursPerDay - 4) / 4;
     else                        rawJ = at8h + (at12h - at8h) * (hoursPerDay - 8) / 4;
-    return rawJ; // J/day for 35 cm²
+    return rawJ * pvScale; // J/day for 35 cm² scaled by cell type
 }
 
 // Device hardware profiles
@@ -2358,14 +2472,19 @@ const DEVICES = {
   lumen: {
     label:        'Lumen (Smart Label)',
     V:            3.7,    // V – LiPo nominal
-    I_idle_uA:   25,    // µA – incl. PCM 3 µA
-    gnssAssisted: { I_mA: 8,    t_s: 40  },  // Assisted GNSS per fix
-    gnssAuto:     { I_mA: 15,   t_s: 150 },  // Autonomous GNSS (cold start approx)
-    wifi:         { I_mA: 12.6, t_s: 3.5 },  // WiFi scan
+    I_idle_uA:   10,    // µA – incl. PCM 3 µA (Lumen-specific low-power MCU)
+    gnss_type:   'assisted',  // Lumen only supports assisted GNSS (outdoor); no autonomous fix
+    gnssAssisted: { I_mA: 5,    t_s: 40  },  // Assisted GNSS outdoor fix
+    gnssAuto:     null,   // Lumen does NOT support autonomous GNSS fix
+    wifi:         { I_mA: 10.5, t_s: 3.5 },  // LR1110 Wi-Fi scan: ~10.5 mA, 3.5 s, ~10.2 µAh @ 3.3 V
+    ble:          { I_mA: 3.6,  t_s: 5.0 },  // EFR32BG2X BLE scan: ~3.6 mA, 5 s, ~5.0 µAh @ 3.3 V
+    has_ble:     true,
+    ble_beacons_per_scan: 12,  // max BLE beacons per scan (6 per LoRa TX → ceil(n/6) extra UL)
     gnss_uplinks: 2,   // server-side position solving → 2 UL per fix
     defBat_mAh:  450,
     defChem:     'lipo',
     hasHarvest:  true,
+    hasBackupBat: true,   // non-rechargeable backup battery
     opvArea_cm2: 35,
   },
   tags: {
@@ -2374,7 +2493,10 @@ const DEVICES = {
     I_idle_uA:   25,
     gnssAssisted: { I_mA: 8,    t_s: 40  },
     gnssAuto:     { I_mA: 15,   t_s: 150 },
-    wifi:         { I_mA: 24,   t_s: 3.5 },
+    wifi:         { I_mA: 10.5, t_s: 3.5 },  // LR1110 Wi-Fi scan
+    ble:          { I_mA: 3.6,  t_s: 5.0 },  // EFR32BG2X BLE scan
+    has_ble:     true,
+    ble_beacons_per_scan: 12,
     gnss_uplinks: 1,
     gnss_continuous: true, // GNSS stays ON if moving_interval < 5 min
     defBat_mAh:  320,
@@ -2387,7 +2509,10 @@ const DEVICES = {
     I_idle_uA:   25,
     gnssAssisted: { I_mA: 8,    t_s: 40  },
     gnssAuto:     { I_mA: 15,   t_s: 150 },
-    wifi:         { I_mA: 24,   t_s: 3.5 },
+    wifi:         { I_mA: 10.5, t_s: 3.5 },  // LR1110 Wi-Fi scan
+    ble:          { I_mA: 3.6,  t_s: 5.0 },  // EFR32BG2X BLE scan
+    has_ble:     true,
+    ble_beacons_per_scan: 12,
     gnss_uplinks: 1,   // on-chip position solving → 1 UL per fix
     defBat_mAh:  850,
     defChem:     'lipo',
@@ -2399,7 +2524,10 @@ const DEVICES = {
     I_idle_uA:   25,
     gnssAssisted: { I_mA: 8,    t_s: 40  },
     gnssAuto:     { I_mA: 15,   t_s: 150 },
-    wifi:         { I_mA: 24,   t_s: 3.5 },
+    wifi:         { I_mA: 10.5, t_s: 3.5 },  // LR1110 Wi-Fi scan
+    ble:          { I_mA: 3.6,  t_s: 5.0 },  // EFR32BG2X BLE scan
+    has_ble:     true,
+    ble_beacons_per_scan: 12,
     gnss_uplinks: 2,   // server-side position solving → 2 UL per fix
     defBat_mAh:  3000,
     defChem:     'primary',
@@ -2408,17 +2536,22 @@ const DEVICES = {
   cellular: {
     label:        'Cellular Tracker',
     V:            3.7,
-    I_idle_uA:   25,
+    I_idle_uA:   10,    // same low-power MCU family as Lumen
     gnssAssisted: { I_mA: 14,   t_s: 40  },
     gnssAuto:     { I_mA: 14,   t_s: 600 },
-    wifi:         { I_mA: 12.6, t_s: 3.5 },
+    wifi:         { I_mA: 10.5, t_s: 3.5 },  // LR1110 Wi-Fi scan: ~10.5 mA, 3.5 s, ~10.2 µAh @ 3.3 V
+    ble:          { I_mA: 3.6,  t_s: 5.0 },  // EFR32BG2X BLE scan: ~3.6 mA, 5 s, ~5.0 µAh @ 3.3 V
+    has_ble:     true,
+    ble_beacons_per_scan: 12,
     lte:          { I_mA: 150,  t_s: 120 }, // LTE data sync, 1×/day default
     gnss_uplinks: 1,
     gnss_continuous: true, // GNSS stays ON if moving_interval < 5 min
     has_lte:     true,
     defBat_mAh:  2000,
     defChem:     'lipo',
-    hasHarvest:  false,
+    hasHarvest:  true,
+    hasBackupBat: true,
+    opvArea_cm2: 35,
   },
   nomadxs: {
     label:        'Nomad XS',
@@ -2468,6 +2601,7 @@ function ebGetConfig() {
     wifi_enabled:      bv('wifi_en'),
     gnss_enabled:      bv('gnss_en'),
     ble_enabled:       bv('ble_en'),
+    ble_max_beacons:   iv('ble_max_beacons', 12),
     // Event parameters
     ev_idle_uA:        fv('ev_idle_uA',      25),
     ev_gnss_a_mA:      fv('ev_gnss_a_mA',     8),
@@ -2481,9 +2615,13 @@ function ebGetConfig() {
     ev_lte_mA:         fv('ev_lte_mA',    150),
     ev_lte_s:          fv('ev_lte_s',     120),
     harvest_enabled:   bv('harvest_en'),
+    pv_type:           g('pv_type') ? g('pv_type').value : 'opv_dracula',
     opv_area_cm2:      fv('opv_area',    35),
     opv_lux:           iv('opv_lux',    500),
     opv_hours:         fv('opv_hours',    8),
+    backup_bat_en:     bv('backup_bat_en'),
+    backup_bat_chem:   g('backup_bat_chem') ? g('backup_bat_chem').value : 'primary',
+    backup_bat_mAh:    fv('backup_bat_mAh', 200),
     design_margin:     fv('design_margin', 20) / 100,  // fraction e.g. 0.20
   };
 }
@@ -2499,6 +2637,18 @@ function ebCalc() {
 
   // ── Battery ──
   const bat_J = c.bat_mAh * V * 3.6;
+  // Backup battery (non-rechargeable, separate chemistry)
+  const BACKUP_CHEMS = {
+    'cr2032':  { label: 'CR2032 (Li-MnO₂)',      V_nom: 3.0, self_discharge_pct_month: 0.5 },
+    'primary': { label: 'Primary Li / L91',        V_nom: 3.6, self_discharge_pct_month: 0.5 },
+    'lisocl2': { label: 'Li-SOCl₂ industrial',    V_nom: 3.6, self_discharge_pct_month: 1.0 },
+    'lto':     { label: 'Li-Titanate (LTO)',       V_nom: 2.4, self_discharge_pct_month: 0.8 },
+    'lifepo4': { label: 'LiFePO₄ (primary cell)', V_nom: 3.2, self_discharge_pct_month: 2.0 },
+  };
+  const bbChem = BACKUP_CHEMS[c.backup_bat_chem] || BACKUP_CHEMS['primary'];
+  const backup_bat_J = (c.backup_bat_en && dev && dev.hasBackupBat)
+    ? c.backup_bat_mAh * bbChem.V_nom * 3.6 : 0;
+  const total_bat_J = bat_J + backup_bat_J;
 
   // ── Self-discharge ──
   const selfDischarge_J_day = bat_J * (chem.self_discharge_pct_month / 100) / 30.44;
@@ -2516,7 +2666,8 @@ function ebCalc() {
   if (contNote) contNote.style.display = continuous ? '' : 'none';
 
   // ── GNSS fix duration for this device type ──
-  const isAssisted  = dev.gnss_type === 'assisted';
+  // Lumen (gnss_type='assisted' or gnssAuto===null) always uses assisted GNSS
+  const isAssisted  = dev.gnss_type === 'assisted' || dev.gnssAuto === null;
   const gnss_fix_s  = isAssisted ? c.ev_gnss_a_s : c.ev_gnss_auto_s;
   const gnss_fix_mA = isAssisted ? c.ev_gnss_a_mA : c.ev_gnss_auto_mA;
 
@@ -2583,10 +2734,23 @@ function ebCalc() {
   // Message count:
   //   GNSS event  → gnss_ul logical messages (1 for auto, 2 for assisted/Tag XL)
   //   WiFi event  → 1 logical message  (mutually exclusive with GNSS)
+  //   BLE scan    → ceil(max_beacons / 6) logical messages (6 MACs per LoRa TX)
   //   Heartbeat   → 1 logical message
   const lora_msgs_from_gnss = gnss_events_day * gnss_ul;
   const lora_msgs_from_wifi = wifi_events_day * 1;
-  const total_loc_msgs_day  = lora_msgs_from_gnss + lora_msgs_from_wifi;
+
+  // BLE LoRa message count (needed here for total_msgs_day; energy computed below)
+  let ble_lora_ul_per_scan = 1;
+  let lora_msgs_from_ble = 0;
+  let ble_scans_day = 0;
+  if (c.ble_enabled && dev.has_ble) {
+    ble_scans_day = gnss_fixes_day;
+    const maxBeacons = c.ble_max_beacons || dev.ble_beacons_per_scan || 12;
+    ble_lora_ul_per_scan = Math.ceil(maxBeacons / 6);
+    lora_msgs_from_ble = ble_scans_day * ble_lora_ul_per_scan;
+  }
+
+  const total_loc_msgs_day  = lora_msgs_from_gnss + lora_msgs_from_wifi + lora_msgs_from_ble;
   const total_msgs_day      = total_loc_msgs_day + hb_per_day;
 
   // S&F: each logical message generates E[tx] actual transmissions on average
@@ -2620,11 +2784,10 @@ function ebCalc() {
   }
 
   // ── BLE energy (concurrent with GNSS fixes, outdoor events only) ──
+  // Each BLE scan may produce multiple LoRa TX: ceil(max_beacons / 6) TX per scan
   let ble_J_day = 0;
-  let ble_scans_day = 0;
   if (c.ble_enabled && dev.has_ble) {
-    ble_scans_day = gnss_fixes_day;   // BLE runs alongside GNSS; gnss_fixes_day has gnss_frac
-    ble_J_day     = ble_scans_day * E_ble_fix;
+    ble_J_day = ble_scans_day * E_ble_fix;
   }
 
   // ── LTE energy ──
@@ -2635,7 +2798,7 @@ function ebCalc() {
   let harvest_J_day = 0;
   if (c.harvest_enabled && dev.hasHarvest) {
     const area = c.opv_area_cm2 || dev.opvArea_cm2 || 35;
-    harvest_J_day = interpolateOPV(c.opv_lux, c.opv_hours) * (area / 35) * OPV_PMIC_EFF;
+    harvest_J_day = interpolateOPV(c.opv_lux, c.opv_hours, c.pv_type) * (area / 35) * OPV_PMIC_EFF;
   }
 
   // ── Totals ──
@@ -2650,11 +2813,11 @@ function ebCalc() {
   // ── Lifetime (with margin applied) ──
   let life_days, infinite = false;
   if (netOut_J_day <= 0) { infinite = true; life_days = Infinity; }
-  else { life_days = bat_J / netOut_J_day; }
+  else { life_days = total_bat_J / netOut_J_day; }
 
   // Nominal lifetime (no margin, for display comparison)
   const netOut_nominal   = totalOut_J_day - harvest_J_day;
-  const life_days_nominal = netOut_nominal <= 0 ? Infinity : bat_J / netOut_nominal;
+  const life_days_nominal = netOut_nominal <= 0 ? Infinity : total_bat_J / netOut_nominal;
 
   // ── Lifetime display ──
   const fmtLife = d => {
@@ -2683,9 +2846,14 @@ function ebCalc() {
   const batEl = document.getElementById('eb_result_batcap');
   if (batEl) batEl.textContent =
     'Battery: '+fmtJ(bat_J)+' ('+c.bat_mAh+' mAh @ '+V+' V)'
+    +(backup_bat_J > 0 ? '  +  Backup: '+fmtJ(backup_bat_J)+' ('+c.backup_bat_mAh+' mAh '+bbChem.label+')  →  Total: '+fmtJ(total_bat_J) : '')
     +(margin > 0 && isFinite(life_days_nominal) ? '  ·  Nominal (no margin): '+fmtLife(life_days_nominal) : '');
+  const backupDisp = document.getElementById('eb_backup_bat_display');
+  if (backupDisp) backupDisp.textContent = c.backup_bat_en && dev && dev.hasBackupBat
+    ? fmtJ(backup_bat_J)+' ('+c.backup_bat_mAh+' mAh @ '+bbChem.V_nom+'V)' : '—';
+
   const batDisp = document.getElementById('eb_batcap_display');
-  if (batDisp) batDisp.textContent = fmtJ(bat_J);
+  if (batDisp) batDisp.textContent = backup_bat_J > 0 ? fmtJ(bat_J)+' + '+fmtJ(backup_bat_J)+' backup = '+fmtJ(total_bat_J) : fmtJ(bat_J);
   const marginDisp = document.getElementById('eb_margin_display');
   if (marginDisp) {
     marginDisp.textContent = margin > 0
@@ -2739,6 +2907,7 @@ function ebCalc() {
                     +' ('+total_msgs_day.toFixed(1)+' logical × '+etx.toFixed(2)+' E[tx])'
                     +' — '+lora_msgs_from_gnss.toFixed(0)+' GNSS'
                     +(lora_msgs_from_wifi>0 ? '+'+lora_msgs_from_wifi.toFixed(0)+' WiFi' : '')
+                    +(lora_msgs_from_ble>0 ? '+'+lora_msgs_from_ble.toFixed(0)+' BLE('+ble_lora_ul_per_scan+' UL/scan)' : '')
                     +'+'+hb_per_day.toFixed(0)+' HB',
       J:          lora_J_day,
     },
@@ -2845,7 +3014,7 @@ function ebCalc() {
       `<span style="color:var(--text)">GNSS:</span> ${gnssCount} (${Math.round(gnss_frac*100)}% → ${gnssLabel}) &nbsp;·&nbsp; `+
       `<span style="color:var(--text)">WiFi scans:</span> ${wifi_scans_day.toFixed(1)}/day (${Math.round(wifi_frac*100)}% → 1 UL/scan) &nbsp;·&nbsp; `+
       `<span style="color:var(--text)">Logical msgs:</span> ${total_msgs_day.toFixed(1)}/day `+
-      `(${lora_msgs_from_gnss.toFixed(0)} GNSS + ${lora_msgs_from_wifi.toFixed(0)} WiFi + ${hb_per_day.toFixed(0)} HB) &nbsp;·&nbsp; `+
+      `(${lora_msgs_from_gnss.toFixed(0)} GNSS + ${lora_msgs_from_wifi.toFixed(0)} WiFi + ${lora_msgs_from_ble.toFixed(0)} BLE + ${hb_per_day.toFixed(0)} HB) &nbsp;·&nbsp; `+
       `<span style="color:var(--text)">E[tx]:</span> ${etx.toFixed(3)} &nbsp;·&nbsp; `+
       `<span style="color:var(--text)">Actual TX:</span> ${actual_tx_day.toFixed(1)}/day`;
   }
@@ -2855,13 +3024,14 @@ function ebCalc() {
   // ── Snapshot for PDF export ──
   window._ebExportData = {
     c, dev, chem, V,
-    bat_J, margin, life_days, life_days_nominal,
+    bat_J, backup_bat_J, total_bat_J, bbChem,
+    margin, life_days, life_days_nominal,
     totalOut_J_day, totalOut_margined, netOut_J_day, harvest_J_day,
     energyComponents, totalForPct,
     etx, actual_tx_day, total_msgs_day,
     lora_msgs_from_gnss, lora_msgs_from_wifi, hb_per_day,
     gnss_fixes_day, gnss_fixes_moving, gnss_fixes_steady,
-    wifi_scans_day, ble_scans_day,
+    wifi_scans_day, ble_scans_day, ble_lora_ul_per_scan, lora_msgs_from_ble,
     pos_events_day, pos_events_moving, pos_events_steady,
     gnss_frac, wifi_frac, gnss_ul, isAssisted,
     gnss_fix_mA, gnss_fix_s, E_gnss_fix, E_wifi_fix, E_ble_fix,
@@ -2873,6 +3043,10 @@ function ebCalc() {
   // ── E[tx] display (still in LoRa config card) ──
   const etxEl = document.getElementById('eb_stat_etx');
   if (etxEl) etxEl.textContent = etx.toFixed(3)+' tx/msg';
+
+  // Update BLE LoRa UL count preview
+  const blePrev = document.getElementById('eb_ble_lora_ul_preview');
+  if (blePrev) blePrev.textContent = ble_lora_ul_per_scan;
 
   // ── Harvest stat box (still in harvesting card) ──
   const hStatBox = document.getElementById('eb_stat_harvest');
@@ -2947,7 +3121,7 @@ function ebOnDeviceChange() {
 
   // Populate event param inputs
   eb('ev_idle_uA').value    = dev.I_idle_uA;
-  const ga = dev.gnssAssisted || { I_mA: 8, t_s: 3.5 };
+  const ga = dev.gnssAssisted || { I_mA: 8, t_s: 40 };
   const gn = dev.gnssAuto     || { I_mA: 15, t_s: 150 };
   eb('ev_gnss_a_mA').value    = ga.I_mA;
   eb('ev_gnss_a_s').value     = ga.t_s;
@@ -2957,12 +3131,18 @@ function ebOnDeviceChange() {
   if (dev.ble)  { eb('ev_ble_mA').value  = dev.ble.I_mA;  eb('ev_ble_s').value  = dev.ble.t_s;  }
   if (dev.lte)  { eb('ev_lte_mA').value  = dev.lte.I_mA;  eb('ev_lte_s').value  = dev.lte.t_s;  }
 
-  // Show/hide GNSS rows based on gnss_type
-  const isAssisted = dev.gnss_type === 'assisted';
+  // BLE max beacons default
+  const bleMaxEl = eb('ble_max_beacons');
+  if (bleMaxEl && dev.ble_beacons_per_scan) bleMaxEl.value = dev.ble_beacons_per_scan;
+
+  // Show/hide GNSS rows:
+  //   Lumen → assisted only (gnss_type === 'assisted'); hide autonomous row
+  //   gnssAuto === null means device cannot do autonomous fix
+  const isAssistedOnly = dev.gnss_type === 'assisted' || dev.gnssAuto === null;
   const gnssAssRow = document.getElementById('eb_ev_gnss_a_row');
   const gnssAutRow = document.getElementById('eb_ev_gnss_auto_row');
-  if (gnssAssRow) gnssAssRow.style.display = isAssisted  ? '' : 'none';
-  if (gnssAutRow) gnssAutRow.style.display = !isAssisted ? '' : 'none';
+  if (gnssAssRow) gnssAssRow.style.display = '';            // always show assisted row if GNSS capable
+  if (gnssAutRow) gnssAutRow.style.display = isAssistedOnly ? 'none' : ''; // hide auto row for Lumen
 
   // Show/hide WiFi / BLE / LTE rows
   const showHide = (id, show) => { const r=document.getElementById(id); if(r) r.style.display=show?'':'none'; };
@@ -2977,6 +3157,10 @@ function ebOnDeviceChange() {
   const bleEnEl = eb('ble_en');
   if (bleEnEl) bleEnEl.checked = !!dev.has_ble;
 
+  // BLE max beacons row
+  const bleMaxRow = document.getElementById('eb_ble_beacons_row');
+  if (bleMaxRow) bleMaxRow.style.display = dev.has_ble ? '' : 'none';
+
   // WiFi checkbox
   const wifiEnEl = eb('wifi_en');
   if (wifiEnEl) wifiEnEl.checked = !!dev.wifi;
@@ -2986,6 +3170,10 @@ function ebOnDeviceChange() {
   if (hSection) hSection.style.display = dev.hasHarvest ? '' : 'none';
   if (dev.hasHarvest && dev.opvArea_cm2) eb('opv_area').value = dev.opvArea_cm2;
 
+  // Backup battery section
+  const bbSection = document.getElementById('eb_backup_bat_section');
+  if (bbSection) bbSection.style.display = dev.hasBackupBat ? '' : 'none';
+
   ebCalc();
 }
 
@@ -2993,10 +3181,11 @@ function ebOnDeviceChange() {
 function ebInit() {
   ['device','chem','bat_mAh','voltage','design_margin','sf','batch_size','p1','p2','p3','indoor_pct',
    'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
-   'wifi_en','gnss_en','ble_en',
+   'wifi_en','gnss_en','ble_en','ble_max_beacons',
    'ev_idle_uA','ev_gnss_a_mA','ev_gnss_a_s','ev_gnss_auto_mA','ev_gnss_auto_s',
    'ev_wifi_mA','ev_wifi_s','ev_ble_mA','ev_ble_s','ev_lte_mA','ev_lte_s',
-   'harvest_en','opv_area','opv_lux','opv_hours'].forEach(id => {
+   'harvest_en','pv_type','opv_area','opv_lux','opv_hours',
+   'backup_bat_en','backup_bat_chem','backup_bat_mAh'].forEach(id => {
     const el = eb(id);
     if (!el) return;
     el.addEventListener('input',  ebCalc);
