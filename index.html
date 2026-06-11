@@ -2483,6 +2483,8 @@ const DEVICES = {
     gnss_uplinks: 2,   // server-side position solving → 2 UL per fix
     defBat_mAh:  450,
     defChem:     'lipo',
+    defIndoorPct: 95,
+    defHarvest:  true,
     hasHarvest:  true,
     hasBackupBat: true,   // non-rechargeable backup battery
     opvArea_cm2: 35,
@@ -2549,6 +2551,8 @@ const DEVICES = {
     has_lte:     true,
     defBat_mAh:  2000,
     defChem:     'lipo',
+    defIndoorPct: 50,
+    defHarvest:  false,
     hasHarvest:  true,
     hasBackupBat: true,
     opvArea_cm2: 35,
@@ -3165,6 +3169,12 @@ function ebOnDeviceChange() {
   // WiFi checkbox
   const wifiEnEl = eb('wifi_en');
   if (wifiEnEl) wifiEnEl.checked = !!dev.wifi;
+
+  // Per-device defaults for indoor ratio and harvesting
+  const indoorEl = eb('indoor_pct');
+  if (indoorEl) indoorEl.value = dev.defIndoorPct !== undefined ? dev.defIndoorPct : 20;
+  const harvestEnEl = eb('harvest_en');
+  if (harvestEnEl) harvestEnEl.checked = !!dev.defHarvest;
 
   // Harvest section
   const hSection = eb('harvest_section');
