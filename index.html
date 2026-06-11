@@ -1111,7 +1111,7 @@
         <div class="frow">
           <div class="field">
             <label for="eb_opv_hours">Light exposure (h/day)</label>
-            <input type="number" id="eb_opv_hours" value="8" min="0" max="24" step="0.5">
+            <input type="number" id="eb_opv_hours" value="12" min="0" max="24" step="0.5">
           </div>
           <div class="field">
             <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Harvested (J/day, with η)</label>
@@ -2555,7 +2555,7 @@ const DEVICES = {
     defHarvest:  false,
     hasHarvest:  true,
     hasBackupBat: true,
-    opvArea_cm2: 35,
+    opvArea_cm2: 70,
   },
   nomadxs: {
     label:        'Nomad XS',
@@ -2623,7 +2623,7 @@ function ebGetConfig() {
     pv_type:           g('pv_type') ? g('pv_type').value : 'opv_dracula',
     opv_area_cm2:      fv('opv_area',    35),
     opv_lux:           iv('opv_lux',    500),
-    opv_hours:         fv('opv_hours',    8),
+    opv_hours:         fv('opv_hours',   12),
     backup_bat_en:     bv('backup_bat_en'),
     backup_bat_chem:   g('backup_bat_chem') ? g('backup_bat_chem').value : 'primary',
     backup_bat_mAh:    fv('backup_bat_mAh', 200),
