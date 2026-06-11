@@ -2606,6 +2606,7 @@ const DEVICES = {
     wifi:         { I_mA: 10.5, t_s: 3.5 },  // LR1110 Wi-Fi scan
     ble:          { I_mA: 3.6,  t_s: 5.0 },  // EFR32BG2X BLE scan
     has_ble:     true,
+    defBleEnabled: false,  // BLE scanning disabled by default for Tag XL
     ble_beacons_per_scan: 12,
     gnss_uplinks: 2,   // server-side position solving → 2 UL per fix
     defBat_mAh:  3000,
@@ -3286,7 +3287,7 @@ function ebOnDeviceChange() {
   const bleCheck = document.getElementById('eb_ble_en_wrap');
   if (bleCheck) bleCheck.style.display = dev.has_ble ? '' : 'none';
   const bleEnEl = eb('ble_en');
-  if (bleEnEl) bleEnEl.checked = !!dev.has_ble;
+  if (bleEnEl) bleEnEl.checked = dev.defBleEnabled !== undefined ? dev.defBleEnabled : !!dev.has_ble;
 
   // BLE max beacons row
   const bleMaxRow = document.getElementById('eb_ble_beacons_row');
