@@ -2606,7 +2606,7 @@ function ebGetConfig() {
     // Event parameters
     ev_idle_uA:        fv('ev_idle_uA',      25),
     ev_gnss_a_mA:      fv('ev_gnss_a_mA',     8),
-    ev_gnss_a_s:       fv('ev_gnss_a_s',    3.5),
+    ev_gnss_a_s:       fv('ev_gnss_a_s',     40),
     ev_gnss_auto_mA:   fv('ev_gnss_auto_mA', 15),
     ev_gnss_auto_s:    fv('ev_gnss_auto_s', 150),
     ev_wifi_mA:        fv('ev_wifi_mA',    12.6),
@@ -2740,11 +2740,12 @@ function ebCalc() {
   const lora_msgs_from_wifi = wifi_events_day * 1;
 
   // BLE LoRa message count (needed here for total_msgs_day; energy computed below)
+  // BLE scans fire on every position event — same count as WiFi scans
   let ble_lora_ul_per_scan = 1;
   let lora_msgs_from_ble = 0;
   let ble_scans_day = 0;
   if (c.ble_enabled && dev.has_ble) {
-    ble_scans_day = gnss_fixes_day;
+    ble_scans_day = pos_events_day;   // BLE fires on every position event, same as WiFi
     const maxBeacons = c.ble_max_beacons || dev.ble_beacons_per_scan || 12;
     ble_lora_ul_per_scan = Math.ceil(maxBeacons / 6);
     lora_msgs_from_ble = ble_scans_day * ble_lora_ul_per_scan;
@@ -2944,12 +2945,12 @@ function ebCalc() {
       hide:       !dev.wifi && wifi_J_day === 0,
     },
     {
-      label:      'BLE scan (outdoor, concurrent with GNSS)',
+      label:      'BLE scan (1 UL/scan × '+ble_lora_ul_per_scan+')',
       color:      '#ff6b6b',
       I:          dev.has_ble ? c.ev_ble_mA.toFixed(1)+' mA' : 'N/A',
       t:          dev.has_ble ? c.ev_ble_s+' s' : 'N/A',
       ePerEvent:  dev.has_ble ? (c.ble_enabled ? fmtJ(E_ble_fix)+'/scan' : 'disabled') : 'no BLE',
-      eventsDay:  dev.has_ble && c.ble_enabled ? ble_scans_day.toFixed(1) : '0',
+      eventsDay:  dev.has_ble && c.ble_enabled ? ble_scans_day.toFixed(1)+' (all pos. events)' : '0',
       J:          ble_J_day,
       hide:       !dev.has_ble && ble_J_day === 0,
     },
