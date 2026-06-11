@@ -799,8 +799,9 @@
             <label for="eb_chem">Battery chemistry</label>
             <select id="eb_chem">
               <option value="lipo">LiPo (rechargeable, 3%/mo self-disch.)</option>
-              <option value="primary">Primary Li / Energizer L91 (0.5%/mo)</option>
-              <option value="lisocl2">Li-SOCl₂ industrial (1%/mo)</option>
+              <option value="lto">Li-Titanate LTO (rechargeable, ~3%/yr self-disch.)</option>
+              <option value="primary">Primary Li / Energizer L91 (~0.3%/yr)</option>
+              <option value="lisocl2">Li-SOCl₂ industrial (~1%/yr)</option>
             </select>
           </div>
         </div>
@@ -875,7 +876,7 @@
         <div class="frow" style="margin-top:10px">
           <div class="field">
             <label for="eb_batch_size">Batch size (1 confirmed per N msgs)</label>
-            <input type="number" id="eb_batch_size" value="1" min="1" max="100" step="1">
+            <input type="number" id="eb_batch_size" value="10" min="1" max="100" step="1">
           </div>
           <div class="field">
             <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Confirmed / Unconfirmed split</label>
@@ -930,9 +931,9 @@
         </div>
         <div class="checks" style="margin-top:10px">
           <label class="check"><input type="checkbox" id="eb_gnss_en" checked> GNSS enabled</label>
-          <label class="check"><input type="checkbox" id="eb_wifi_en" checked> WiFi scan (indoor)</label>
+          <label class="check"><input type="checkbox" id="eb_wifi_en" checked> WiFi scan</label>
           <div id="eb_ble_en_wrap" style="display:none">
-            <label class="check"><input type="checkbox" id="eb_ble_en"> BLE scan (outdoor)</label>
+            <label class="check"><input type="checkbox" id="eb_ble_en"> BLE scan</label>
           </div>
         </div>
       </div>
@@ -1139,11 +1140,10 @@
           <div class="field">
             <label for="eb_backup_bat_chem">Chemistry</label>
             <select id="eb_backup_bat_chem">
-              <option value="cr2032">CR2032 / Li-MnO₂ (3.0 V) — 0.5%/mo self-discharge · coin cell, 225 mAh typical</option>
-              <option value="primary" selected>Primary Li / Energizer L91 (3.6 V) — 0.5%/mo · AA-size, high energy density</option>
-              <option value="lisocl2">Li-SOCl₂ industrial (3.6 V) — 1.0%/mo · highest capacity, ideal for long shelf life</option>
-              <option value="lto">Li-Titanate LTO (2.4 V) — 0.8%/mo · very wide temp range (−40°C to +60°C)</option>
-              <option value="lifepo4">LiFePO₄ primary (3.2 V) — 2.0%/mo · thermally stable, safe chemistry</option>
+              <option value="cr2032">CR2032 / Li-MnO₂ (3.0 V) — ~1%/yr self-discharge · coin cell, 225 mAh typical</option>
+              <option value="primary" selected>Primary Li / Energizer L91 (3.6 V) — ~0.3%/yr · AA-size, high energy density</option>
+              <option value="lisocl2">Li-SOCl₂ industrial (3.6 V) — ~1%/yr · highest capacity, ideal for long shelf life</option>
+              <option value="lifepo4">LiFePO₄ primary (3.2 V) — ~1%/yr · thermally stable, safe chemistry</option>
             </select>
           </div>
         </div>
@@ -1158,7 +1158,7 @@
           </div>
         </div>
         <div class="hint-box" style="margin-top:8px;font-size:0.76rem">
-          <strong>Self-discharge rates:</strong> CR2032 ≈ 0.5%/mo · L91 ≈ 0.5%/mo · Li-SOCl₂ ≈ 1%/mo · LTO ≈ 0.8%/mo · LiFePO₄ ≈ 2%/mo<br>
+          <strong>Self-discharge rates:</strong> CR2032 ≈ 1%/yr · L91 ≈ 0.3%/yr · Li-SOCl₂ ≈ 1%/yr · LiFePO₄ ≈ 1%/yr<br>
           Backup capacity is added to the main battery total for lifetime calculation. In practice the backup activates only after the rechargeable is exhausted.
         </div>
       </div>
@@ -2571,9 +2571,10 @@ const DEVICES = {
 // Battery chemistry presets
 // self_discharge_pct_month: % of total capacity lost per month to self-discharge
 const CHEMISTRIES = {
-  lipo:    { label: 'LiPo (rechargeable)',         V_nom: 3.7, self_discharge_pct_month: 3.0 },
-  primary: { label: 'Primary Li (Energizer L91)',   V_nom: 3.6, self_discharge_pct_month: 0.5 },
-  lisocl2: { label: 'Li-SOCl2 (industrial)',        V_nom: 3.6, self_discharge_pct_month: 1.0 },
+  lipo:    { label: 'LiPo (rechargeable)',         V_nom: 3.7, self_discharge_pct_month: 3.0   },
+  lto:     { label: 'Li-Titanate LTO (rechargeable)', V_nom: 2.4, self_discharge_pct_month: 0.3 },  // ~3%/yr
+  primary: { label: 'Primary Li (Energizer L91)',   V_nom: 3.6, self_discharge_pct_month: 0.025 },  // ~0.3%/yr
+  lisocl2: { label: 'Li-SOCl₂ (industrial)',        V_nom: 3.6, self_discharge_pct_month: 0.08  },  // ~1%/yr
 };
 
 function eb(id) { return document.getElementById('eb_' + id); }
@@ -2589,7 +2590,7 @@ function ebGetConfig() {
     bat_mAh:           fv('bat_mAh',  450),
     voltage:           fv('voltage',  3.7),
     sf:                iv('sf',        9),
-    batch_size:        Math.max(1, iv('batch_size', 1)),
+    batch_size:        Math.max(1, iv('batch_size', 10)),
     p1:                fv('p1',  50) / 100,
     p2:                fv('p2',  75) / 100,
     p3:                fv('p3', 100) / 100,
@@ -2639,11 +2640,10 @@ function ebCalc() {
   const bat_J = c.bat_mAh * V * 3.6;
   // Backup battery (non-rechargeable, separate chemistry)
   const BACKUP_CHEMS = {
-    'cr2032':  { label: 'CR2032 (Li-MnO₂)',      V_nom: 3.0, self_discharge_pct_month: 0.5 },
-    'primary': { label: 'Primary Li / L91',        V_nom: 3.6, self_discharge_pct_month: 0.5 },
-    'lisocl2': { label: 'Li-SOCl₂ industrial',    V_nom: 3.6, self_discharge_pct_month: 1.0 },
-    'lto':     { label: 'Li-Titanate (LTO)',       V_nom: 2.4, self_discharge_pct_month: 0.8 },
-    'lifepo4': { label: 'LiFePO₄ (primary cell)', V_nom: 3.2, self_discharge_pct_month: 2.0 },
+    'cr2032':  { label: 'CR2032 (Li-MnO₂)',      V_nom: 3.0, self_discharge_pct_month: 0.08  },  // ~1%/yr
+    'primary': { label: 'Primary Li / L91',        V_nom: 3.6, self_discharge_pct_month: 0.025 },  // ~0.3%/yr
+    'lisocl2': { label: 'Li-SOCl₂ (industrial)',  V_nom: 3.6, self_discharge_pct_month: 0.08  },  // ~1%/yr
+    'lifepo4': { label: 'LiFePO₄ (primary cell)', V_nom: 3.2, self_discharge_pct_month: 0.1   },  // ~1%/yr
   };
   const bbChem = BACKUP_CHEMS[c.backup_bat_chem] || BACKUP_CHEMS['primary'];
   const backup_bat_J = (c.backup_bat_en && dev && dev.hasBackupBat)
