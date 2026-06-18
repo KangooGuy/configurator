@@ -2176,7 +2176,7 @@ const LM = [
      if(patHex.length%2!==0)throw new Error('Pattern must be an even number of hex digits.');
      const patBytes=[];for(let i=0;i<patHex.length;i+=2)patBytes.push(parseInt(patHex.slice(i,i+2),16));
      if(patBytes.length>9)throw new Error('Pattern too long: max 8 bytes.');
-     const fd=[0,patBytes.length,...patBytes,...new Array(9-patBytes.length).fill(0)];
+     const fd=[patBytes.length,...patBytes,...new Array(9-patBytes.length).fill(0)];
      const filterNames={0:'None',1:'Substr',2:'Eddystone',3:'MacBegins',4:'MacEnds'};
      return{tag:this.tag,size:this.size,dataBytes:[scan,adv,mx,rssiB,ft,...fd],
        summary:`BLE: scan=${scan}s adv=${adv}min max=${mx} rssi≥${rssi}dBm filter=${filterNames[ft]||ft}`,
