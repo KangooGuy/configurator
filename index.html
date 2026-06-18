@@ -2166,13 +2166,13 @@ const LM = [
    build(){const v=xn('lmbc_v',1,255);return{tag:this.tag,size:this.size,dataBytes:[v],summary:`Batch size=${v} records`,details:[`=${xh(v)}`]};}},
   {id:'lm_setBleConfig',cat:'Setter',name:'Set BLE Configuration',tag:0x2C,size:16,
    desc:'Full BLE scan and filter configuration (16 bytes). Filter types: 0=None · 1=Substr (name contains) · 2=Eddystone (service data contains) · 3=MacBegins · 4=MacEnds. filter_data layout: [reserved | length | pattern bytes…].',
-   form(){return`<div class="frow"><div class="field"><label for="lmble_scan">scan_seconds</label><input id="lmble_scan" type="number" min="1" max="255" value="5"></div><div class="field"><label for="lmble_adv">advert_minutes</label><input id="lmble_adv" type="number" min="1" max="255" value="1"></div></div><div class="frow"><div class="field"><label for="lmble_max">max_scan_result</label><input id="lmble_max" type="number" min="1" max="255" value="12"></div><div class="field"><label for="lmble_rssi">min_rssi (dBm)</label><input id="lmble_rssi" type="number" min="-128" max="0" value="-90"></div></div><div class="field"><label for="lmble_ftype">filter_type</label><select id="lmble_ftype" onchange="lmBleFilterChanged()"><option value="0">0 — None (accept all)</option><option value="1">1 — Substr (advertised name contains)</option><option value="2">2 — Eddystone (service data contains)</option><option value="3">3 — MacBegins (MAC prefix)</option><option value="4">4 — MacEnds (MAC suffix)</option></select></div><div class="field" id="lmble_pfield" style="display:none"><label for="lmble_pattern">filter_data pattern (hex, max 8 bytes)</label><input id="lmble_pattern" type="text" placeholder="e.g. 4142 or 01020304" maxlength="16" value=""></div>`;},
+   form(){return`<div class="frow"><div class="field"><label for="lmble_scan">scan_seconds</label><input id="lmble_scan" type="number" min="1" max="255" value="5"></div><div class="field"><label for="lmble_adv">advert_minutes</label><input id="lmble_adv" type="number" min="1" max="255" value="1"></div></div><div class="frow"><div class="field"><label for="lmble_max">max_scan_result</label><input id="lmble_max" type="number" min="1" max="255" value="12"></div><div class="field"><label for="lmble_rssi">min_rssi (dBm)</label><input id="lmble_rssi" type="number" min="-128" max="0" value="-90"></div></div><div class="field"><label for="lmble_ftype">filter_type</label><select id="lmble_ftype" onchange="lmBleFilterChanged()"><option value="0">0 — None (accept all)</option><option value="1">1 — Substr (advertised name contains)</option><option value="2">2 — Eddystone (service data contains)</option><option value="3">3 — MacBegins (MAC prefix)</option><option value="4">4 — MacEnds (MAC suffix)</option></select></div><div class="field" id="lmble_pfield" style="display:none"><label>filter_data pattern (max 8 bytes)</label><div style="display:flex;gap:6px;margin-bottom:6px"><button type="button" class="btn-s" id="lmble_mode_hex" onclick="lmBleSetMode('hex')" style="flex:1;padding:4px 0;font-size:0.75rem">HEX</button><button type="button" class="btn-dk" id="lmble_mode_ascii" onclick="lmBleSetMode('ascii')" style="flex:1;padding:4px 0;font-size:0.75rem">ASCII</button></div><input id="lmble_pattern_hex" type="text" placeholder="e.g. AABBCCDD" maxlength="16" value="" oninput="lmBleHexChanged()" style="font-family:var(--mono)"><input id="lmble_pattern_ascii" type="text" placeholder="e.g. MyBeacon" maxlength="8" value="" oninput="lmBleAsciiChanged()" style="display:none"><div style="font-size:0.72rem;color:var(--muted);margin-top:4px" id="lmble_preview"></div></div>`;},
    build(){
      const scan=xn('lmble_scan',1,255),adv=xn('lmble_adv',1,255),mx=xn('lmble_max',1,255);
      const rssi=Math.max(-128,Math.min(0,parseInt(document.getElementById('lmble_rssi').value)||(-90)));
      const rssiB=rssi<0?256+rssi:rssi;
      const ft=parseInt(document.getElementById('lmble_ftype').value)||0;
-     const patHex=(document.getElementById('lmble_pattern').value||'').replace(/[^0-9a-fA-F]/g,'');
+     const patHex=lmBleGetPatternHex();
      if(patHex.length%2!==0)throw new Error('Pattern must be an even number of hex digits.');
      const patBytes=[];for(let i=0;i<patHex.length;i+=2)patBytes.push(parseInt(patHex.slice(i,i+2),16));
      if(patBytes.length>8)throw new Error('Pattern too long: max 8 bytes.');
@@ -2212,6 +2212,59 @@ function lmBleFilterChanged(){
   const ft=parseInt(document.getElementById('lmble_ftype')?document.getElementById('lmble_ftype').value:0)||0;
   const pf=document.getElementById('lmble_pfield');
   if(pf) pf.style.display=ft===0?'none':'block';
+  lmBleUpdatePreview();
+}
+let _lmBleMode='hex';
+function lmBleSetMode(mode){
+  _lmBleMode=mode;
+  const hexIn=document.getElementById('lmble_pattern_hex');
+  const ascIn=document.getElementById('lmble_pattern_ascii');
+  const btnH=document.getElementById('lmble_mode_hex');
+  const btnA=document.getElementById('lmble_mode_ascii');
+  if(!hexIn||!ascIn) return;
+  if(mode==='ascii'){
+    // convert current hex to ascii for display
+    const hex=(hexIn.value||'').replace(/[^0-9a-fA-F]/g,'');
+    let ascii='';
+    for(let i=0;i<hex.length;i+=2){const b=parseInt(hex.slice(i,i+2),16);ascii+=b>=32&&b<127?String.fromCharCode(b):'.';}
+    ascIn.value=ascii;
+    hexIn.style.display='none'; ascIn.style.display='';
+    if(btnH){btnH.className='btn-dk';} if(btnA){btnA.className='btn-s';}
+  } else {
+    // convert current ascii to hex
+    const ascii=ascIn.value||'';
+    hexIn.value=Array.from(ascii).map(c=>c.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0')).join('');
+    ascIn.style.display='none'; hexIn.style.display='';
+    if(btnH){btnH.className='btn-s';} if(btnA){btnA.className='btn-dk';}
+  }
+  lmBleUpdatePreview();
+}
+function lmBleHexChanged(){
+  // sync ascii side from hex
+  const hex=(document.getElementById('lmble_pattern_hex').value||'').replace(/[^0-9a-fA-F]/g,'');
+  let ascii='';
+  for(let i=0;i<hex.length;i+=2){const b=parseInt(hex.slice(i,i+2),16);ascii+=b>=32&&b<127?String.fromCharCode(b):'.';}
+  const ai=document.getElementById('lmble_pattern_ascii'); if(ai) ai.value=ascii;
+  lmBleUpdatePreview();
+}
+function lmBleAsciiChanged(){
+  // sync hex side from ascii
+  const ascii=document.getElementById('lmble_pattern_ascii').value||'';
+  const hex=Array.from(ascii).map(c=>c.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0')).join('');
+  const hi=document.getElementById('lmble_pattern_hex'); if(hi) hi.value=hex;
+  lmBleUpdatePreview();
+}
+function lmBleGetPatternHex(){
+  const hi=document.getElementById('lmble_pattern_hex');
+  return (hi?hi.value:'').replace(/[^0-9a-fA-F]/g,'');
+}
+function lmBleUpdatePreview(){
+  const prev=document.getElementById('lmble_preview'); if(!prev) return;
+  const hex=lmBleGetPatternHex();
+  if(!hex){prev.textContent='';return;}
+  const bytes=[];for(let i=0;i<hex.length;i+=2)bytes.push(parseInt(hex.slice(i,i+2),16));
+  const ascii=bytes.map(b=>b>=32&&b<127?String.fromCharCode(b):'.').join('');
+  prev.textContent=`${bytes.length} byte${bytes.length!==1?'s':''} · hex: ${hex.toUpperCase()} · ascii: "${ascii}"`;
 }
 makeTlvEngine('lm', LM).init('lm_sel','lm_form');
 
