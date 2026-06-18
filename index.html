@@ -451,6 +451,8 @@
     <span class="info-pill">Format: <span class="mono">4C | LENGTH | NR | TLV…</span></span>
     <span class="info-pill">TLV: <span class="mono">TAG | SIZE | DATA</span></span>
     <span class="info-pill">Port: <span class="mono">151</span></span>
+    <span class="info-pill">Setters: <span class="mono">0x20–0x30</span></span>
+    <span class="info-pill">Getters: <span class="mono">0x40–0x61</span></span>
     <span class="info-pill">16-bit: <span class="mono">big-endian</span></span>
   </div>
   <div class="two-col-42">
@@ -551,6 +553,8 @@
     <span class="info-pill">Format: <span class="mono">4C | LENGTH | NR | TLV…</span></span>
     <span class="info-pill">TLV: <span class="mono">TAG | SIZE | DATA</span></span>
     <span class="info-pill">Port: <span class="mono">151</span></span>
+    <span class="info-pill">Setters: <span class="mono">0x20–0x30</span></span>
+    <span class="info-pill">Getters: <span class="mono">0x40–0x61</span></span>
     <span class="info-pill">16-bit: <span class="mono">big-endian</span></span>
   </div>
   <div class="two-col-42">
@@ -2148,15 +2152,35 @@ const LM = [
   {id:'lm_setHB',cat:'Setter',name:'Set HEARTBEAT_INTERVAL',tag:0x23,size:1,desc:'Heartbeat interval in hours (uint8). Default: 6 h.',
    form(){return`<div class="field"><label for="lmh_h">HEARTBEAT_INTERVAL (hours)</label><input id="lmh_h" type="number" min="1" max="255" value="6"></div>`;},
    build(){const h=xn('lmh_h',1,255);return{tag:this.tag,size:this.size,dataBytes:[h],summary:`HEARTBEAT=${h}h`,details:[`=${xh(h)}`]};}},
-  {id:'lm_setAdvFwu',cat:'Setter',name:'Set ADVERTISEMENT_FWU_DURATION',tag:0x24,size:1,desc:'BLE FWU advertising duration in seconds (uint8). Default: 30 s.',
-   form(){return`<div class="field"><label for="lmadv_s">ADVERTISEMENT_FWU_DURATION (s)</label><input id="lmadv_s" type="number" min="5" max="255" value="30"></div>`;},
-   build(){const s=xn('lmadv_s',5,255);return{tag:this.tag,size:this.size,dataBytes:[s],summary:`ADV_FWU=${s}s`,details:[`=${xh(s)}`]};}},
+  {id:'lm_setAdvFwu',cat:'Setter',name:'Set ADVERTISEMENT_FWU_DURATION',tag:0x24,size:1,desc:'BLE FWU advertising duration in minutes (uint8). Default: 1 min.',
+   form(){return`<div class="field"><label for="lmadv_m">ADVERTISEMENT_FWU_DURATION (min)</label><input id="lmadv_m" type="number" min="1" max="255" value="1"></div>`;},
+   build(){const m=xn('lmadv_m',1,255);return{tag:this.tag,size:this.size,dataBytes:[m],summary:`ADV_FWU=${m} min`,details:[`=${xh(m)}`]};}},
   {id:'lm_setDR',cat:'Setter',name:'Set DATA_RATE',tag:0x28,size:1,desc:'Set LoRaWAN data rate or ADR mode.',
    form(){return`<div class="field"><label for="lmdr_v">DATA_RATE</label><select id="lmdr_v"><option value="7">111=ADR</option><option value="0">000=DR5 SF7</option><option value="1">001=DR4 SF8</option><option value="2" selected>010=DR3 SF9/US_SF7</option><option value="3">011=DR2 SF10</option><option value="4">100=DR1 SF11</option><option value="5">101=DR0 SF12</option><option value="6">110=DR1–3 array</option></select></div>`;},
    build(){const v=xn('lmdr_v',0,7);const m={0:'DR5',1:'DR4',2:'DR3',3:'DR2',4:'DR1',5:'DR0',6:'DR1-3',7:'ADR'};return{tag:this.tag,size:this.size,dataBytes:[v],summary:`DATA_RATE=${m[v]||v}`,details:[`=${xh(v)}`]};}},
   {id:'lm_setWifiAp',cat:'Setter',name:'Set WiFi AP Constraint',tag:0x2A,size:1,desc:'Min WiFi APs before skipping GNSS (0=always run GNSS).',
    form(){return`<div class="field"><label for="lmwap_v">MIN_WIFI_APS (0=disabled)</label><input id="lmwap_v" type="number" min="0" max="255" value="3"></div>`;},
    build(){const v=xn('lmwap_v',0,255);return{tag:this.tag,size:this.size,dataBytes:[v],summary:v===0?'WiFi AP constraint disabled':`Skip GNSS if WiFi≥${v} APs`,details:[`=${xh(v)}`]};}},
+  {id:'lm_setBatchCnt',cat:'Setter',name:'Set Batch Size',tag:0x2B,size:1,desc:'Store-and-forward batch size (uint8). Number of records to accumulate before draining the buffer. Default: 10.',
+   form(){return`<div class="field"><label for="lmbc_v">BATCH_SIZE (records)</label><input id="lmbc_v" type="number" min="1" max="255" value="10"></div>`;},
+   build(){const v=xn('lmbc_v',1,255);return{tag:this.tag,size:this.size,dataBytes:[v],summary:`Batch size=${v} records`,details:[`=${xh(v)}`]};}},
+  {id:'lm_setBleConfig',cat:'Setter',name:'Set BLE Configuration',tag:0x2C,size:16,
+   desc:'Full BLE scan and filter configuration (16 bytes). Filter types: 0=None · 1=Substr (name contains) · 2=Eddystone (service data contains) · 3=MacBegins · 4=MacEnds. filter_data layout: [reserved | length | pattern bytes…].',
+   form(){return`<div class="frow"><div class="field"><label for="lmble_scan">scan_seconds</label><input id="lmble_scan" type="number" min="1" max="255" value="5"></div><div class="field"><label for="lmble_adv">advert_minutes</label><input id="lmble_adv" type="number" min="1" max="255" value="1"></div></div><div class="frow"><div class="field"><label for="lmble_max">max_scan_result</label><input id="lmble_max" type="number" min="1" max="255" value="12"></div><div class="field"><label for="lmble_rssi">min_rssi (dBm)</label><input id="lmble_rssi" type="number" min="-128" max="0" value="-90"></div></div><div class="field"><label for="lmble_ftype">filter_type</label><select id="lmble_ftype" onchange="lmBleFilterChanged()"><option value="0">0 — None (accept all)</option><option value="1">1 — Substr (advertised name contains)</option><option value="2">2 — Eddystone (service data contains)</option><option value="3">3 — MacBegins (MAC prefix)</option><option value="4">4 — MacEnds (MAC suffix)</option></select></div><div class="field" id="lmble_pfield" style="display:none"><label for="lmble_pattern">filter_data pattern (hex, max 9 bytes)</label><input id="lmble_pattern" type="text" placeholder="e.g. 4142 or 01020304" maxlength="18" value=""></div>`;},
+   build(){
+     const scan=xn('lmble_scan',1,255),adv=xn('lmble_adv',1,255),mx=xn('lmble_max',1,255);
+     const rssi=Math.max(-128,Math.min(0,parseInt(document.getElementById('lmble_rssi').value)||(-90)));
+     const rssiB=rssi<0?256+rssi:rssi;
+     const ft=parseInt(document.getElementById('lmble_ftype').value)||0;
+     const patHex=(document.getElementById('lmble_pattern').value||'').replace(/[^0-9a-fA-F]/g,'');
+     if(patHex.length%2!==0)throw new Error('Pattern must be an even number of hex digits.');
+     const patBytes=[];for(let i=0;i<patHex.length;i+=2)patBytes.push(parseInt(patHex.slice(i,i+2),16));
+     if(patBytes.length>9)throw new Error('Pattern too long: max 9 bytes.');
+     const fd=[0,patBytes.length,...patBytes,...new Array(9-patBytes.length).fill(0)];
+     const filterNames={0:'None',1:'Substr',2:'Eddystone',3:'MacBegins',4:'MacEnds'};
+     return{tag:this.tag,size:this.size,dataBytes:[scan,adv,mx,rssiB,ft,...fd],
+       summary:`BLE: scan=${scan}s adv=${adv}min max=${mx} rssi≥${rssi}dBm filter=${filterNames[ft]||ft}`,
+       details:[`scan_seconds=${xh(scan)}`,`advert_minutes=${xh(adv)}`,`max_scan=${xh(mx)}`,`min_rssi=${xh(rssiB)} (${rssi}dBm)`,`filter_type=${xh(ft)} (${filterNames[ft]||ft})`,`filter_data=[${fd.map(b=>xh(b)).join(',')}]`]};}},
   {id:'lm_setBattLvl',cat:'Setter',name:'Set Battery Level Thresholds',tag:0x29,size:2,desc:'Critical and low battery % thresholds (uint8 each, 0–100). Defaults: 20%, 40%.',
    form(){return`<div class="frow"><div class="field"><label for="lmbl_crit">Critical (%)</label><input id="lmbl_crit" type="number" min="0" max="100" value="20"></div><div class="field"><label for="lmbl_low">Low (%)</label><input id="lmbl_low" type="number" min="0" max="100" value="40"></div></div>`;},
    build(){const c=xn('lmbl_crit',0,100),l=xn('lmbl_low',0,100);if(c>=l)throw new Error('Critical must be < Low threshold.');return{tag:this.tag,size:this.size,dataBytes:[c,l],summary:`Critical=${c}% Low=${l}%`,details:[`critical=${xh(c)}`,`low=${xh(l)}`]};}},
@@ -2167,7 +2191,7 @@ const LM = [
   {id:'lm_gTrack',    cat:'Getter',name:'Get Tracking Intervals',        tag:0x41,size:0,desc:'Request MOVING and STEADY intervals.',form(){return xeh(this.desc);},build(){return xnd(this,'Get Tracking Intervals');}},
   {id:'lm_gMotion',   cat:'Getter',name:'Get Motion Settings (legacy)',  tag:0x42,size:0,desc:'Request legacy acceleration settings.',form(){return xeh(this.desc);},build(){return xnd(this,'Get Motion Settings (legacy)');}},
   {id:'lm_gHB',       cat:'Getter',name:'Get HEARTBEAT_INTERVAL',       tag:0x43,size:0,desc:'Request heartbeat interval.',form(){return xeh(this.desc);},build(){return xnd(this,'Get HEARTBEAT_INTERVAL');}},
-  {id:'lm_gAdvFwu',   cat:'Getter',name:'Get ADVERTISEMENT_FWU_DURATION',tag:0x44,size:0,desc:'⚠ No-op in current FW — device returns empty TLV.',form(){return xeh(this.desc);},build(){return xnd(this,'Get ADVERTISEMENT_FWU_DURATION');}},
+  {id:'lm_gAdvFwu',   cat:'Getter',name:'Get ADVERTISEMENT_FWU_DURATION',tag:0x44,size:0,desc:'Request current BLE FWU advertisement duration (minutes, uint8).',form(){return xeh(this.desc);},build(){return xnd(this,'Get ADVERTISEMENT_FWU_DURATION');}},
   {id:'lm_gBatt',     cat:'Getter',name:'Get Battery',                   tag:0x45,size:0,desc:'Request battery percentage and voltage.',form(){return xeh(this.desc);},build(){return xnd(this,'Get Battery');}},
   {id:'lm_gFwHash',   cat:'Getter',name:'Get Firmware Version',          tag:0x46,size:0,desc:'Request FW major/minor/patch and HW version.',form(){return xeh(this.desc);},build(){return xnd(this,'Get Firmware Version');}},
   {id:'lm_gRstCnt',   cat:'Getter',name:'Get Reset Count',               tag:0x49,size:0,desc:'Request reset counter.',form(){return xeh(this.desc);},build(){return xnd(this,'Get Reset Count');}},
@@ -2178,10 +2202,17 @@ const LM = [
   {id:'lm_gADR',      cat:'Getter',name:'Get DATA_RATE / ADR',           tag:0x4E,size:0,desc:'Request current data rate or ADR setting.',form(){return xeh(this.desc);},build(){return xnd(this,'Get DATA_RATE / ADR');}},
   {id:'lm_gBatchCnt', cat:'Getter',name:'Get Batch Size',                tag:0x50,size:0,desc:'Request SaF batch size.',form(){return xeh(this.desc);},build(){return xnd(this,'Get Batch Size');}},
   {id:'lm_gMotionV2', cat:'Getter',name:'Get Motion Detection Plan (v2)',tag:0x60,size:0,desc:'Request the full 6-parameter v2 motion detection plan.',form(){return xeh(this.desc);},build(){return xnd(this,'Get Motion Detection Plan (v2)');}},
+  {id:'lm_gBleConfig', cat:'Getter',name:'Get BLE Configuration',        tag:0x51,size:0,desc:'Request the full BLE scan and filter configuration (16 bytes: scan_seconds, advert_minutes, max_scan_result, min_rssi, filter_type, filter_data[10]).',form(){return xeh(this.desc);},build(){return xnd(this,'Get BLE Configuration');}},
+  {id:'lm_gBatteryTemp',cat:'Getter',name:'Get Battery Temperature',     tag:0x61,size:0,desc:'Request the battery temperature in °C (int8_t). Only available on devices with battery temperature sensing (has_battery_temperature capability).',form(){return xeh(this.desc);},build(){return xnd(this,'Get Battery Temperature');}},
   {id:'lm_rReset',  cat:'Runner',name:'Reset Device',               tag:0x81,size:0,desc:'Trigger system reset.',form(){return xeh(this.desc);},build(){return xnd(this,'Reset Device');}},
   {id:'lm_rLocScan',cat:'Runner',name:'Run Location Scan',          tag:0x82,size:0,desc:'Trigger immediate location scan.',form(){return xeh(this.desc);},build(){return xnd(this,'Run Location Scan');}},
   {id:'lm_rClear',  cat:'Runner',name:'Clear Store & Forward Buffer',tag:0x83,size:0,desc:'Clear SaF buffer.',form(){return xeh(this.desc);},build(){return xnd(this,'Clear Store & Forward Buffer');}},
 ];
+function lmBleFilterChanged(){
+  const ft=parseInt(document.getElementById('lmble_ftype')?document.getElementById('lmble_ftype').value:0)||0;
+  const pf=document.getElementById('lmble_pfield');
+  if(pf) pf.style.display=ft===0?'none':'block';
+}
 makeTlvEngine('lm', LM).init('lm_sel','lm_form');
 
 /* ════════════════════════════════════════
