@@ -4342,17 +4342,28 @@ window.ebLoadConfig = ebLoadConfig;
   let bbUserZoom     = 1;
   let bbCodeReader   = null;
 
-  /* ── SN → MAC conversion (mirrors Python serial_to_mac) ── */
+  /* ── SN → MAC conversion (mirrors Python serial_to_mac) ──
+     Uses Number arithmetic only — BigInt literals break iOS Safari < 14.
+     48-bit integers are safely representable as JS Numbers (max 2^53-1). */
   function serialToMac(serialStr) {
-    const value = BigInt(serialStr.trim());
-    if (value < 0n || value > 0xFFFFFFFFFFFFn) {
-      throw new Error('Serial must fit in 6 bytes (0 – 281474976710655)');
+    var s = (serialStr || '').trim();
+    if (!/^[0-9]+$/.test(s)) throw new Error('Serial must be a decimal number.');
+    var value = parseFloat(s);
+    if (isNaN(value) || value < 0 || value > 281474976710655) {
+      throw new Error('Serial must fit in 6 bytes (0 to 281474976710655)');
     }
-    const hex = value.toString(16).toUpperCase().padStart(12, '0');
-    const bytes = [];
-    for (let i = 0; i < 12; i += 2) bytes.push(hex.slice(i, i + 2));
-    const mac = bytes.slice().reverse().join(':');
-    return { mac, hex, hexForward: hex };
+    // Build 12-digit hex byte by byte without BigInt
+    var hex = '';
+    var remaining = value;
+    for (var i = 0; i < 6; i++) {
+      var b = Math.floor(remaining % 256);
+      hex = ('0' + b.toString(16).toUpperCase()).slice(-2) + hex;
+      remaining = Math.floor(remaining / 256);
+    }
+    var bytes = [];
+    for (var j = 0; j < 12; j += 2) bytes.push(hex.slice(j, j + 2));
+    var mac = bytes.slice().reverse().join(':');
+    return { mac: mac, hex: hex };
   }
 
   function bbSetStatus(msg, isErr) {
