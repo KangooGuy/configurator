@@ -4337,10 +4337,8 @@ window.ebLoadConfig = ebLoadConfig;
 (function () {
   'use strict';
 
-  let bbScanControls = null;
-  let bbTorchOn      = false;
-  let bbUserZoom     = 1;
-  let bbCodeReader   = null;
+  let bbTorchOn  = false;
+  let bbUserZoom = 1;
 
   /* ── SN → MAC conversion (mirrors Python serial_to_mac) ──
      Uses Number arithmetic only — BigInt literals break iOS Safari < 14.
@@ -4417,14 +4415,14 @@ window.ebLoadConfig = ebLoadConfig;
       var btn = document.getElementById('bb-zoom-' + n);
       if (btn) btn.classList.toggle('active', n === z);
     });
-    const video = document.getElementById('bb-video');
+    var video = document.getElementById('bb-video');
     if (video) video.style.transform = z === 1 ? '' : 'scale(' + z + ')';
-    if (video && video.srcObject) {
-      const track = video.srcObject.getVideoTracks()[0];
+    if (bbStream) {
+      var track = bbStream.getVideoTracks()[0];
       if (track) {
-        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        var caps = track.getCapabilities ? track.getCapabilities() : {};
         if (caps.zoom) {
-          const nz = caps.zoom.min + (caps.zoom.max - caps.zoom.min) * ((z - 1) / 7);
+          var nz = caps.zoom.min + (caps.zoom.max - caps.zoom.min) * ((z - 1) / 7);
           track.applyConstraints({ advanced: [{ zoom: Math.max(caps.zoom.min, Math.min(caps.zoom.max, nz)) }] }).catch(function(){});
         }
       }
@@ -4432,53 +4430,116 @@ window.ebLoadConfig = ebLoadConfig;
   };
 
   window.bbToggleTorch = async function () {
-    const video  = document.getElementById('bb-video');
-    const stream = video && video.srcObject;
-    if (!stream) return;
-    const track = stream.getVideoTracks()[0];
+    if (!bbStream) return;
+    var track = bbStream.getVideoTracks()[0];
     if (!track) return;
     bbTorchOn = !bbTorchOn;
     try {
       await track.applyConstraints({ advanced: [{ torch: bbTorchOn }] });
-      const btn = document.getElementById('bb-torch-btn');
+      var btn = document.getElementById('bb-torch-btn');
       if (btn) { btn.textContent = bbTorchOn ? 'Torch ON' : '🔦 Torch'; btn.classList.toggle('on', bbTorchOn); }
     } catch (_) {
       bbTorchOn = false;
-      const btn = document.getElementById('bb-torch-btn');
-      if (btn) { btn.textContent = 'Torch N/A'; btn.disabled = true; }
+      var btn2 = document.getElementById('bb-torch-btn');
+      if (btn2) { btn2.textContent = 'Torch N/A'; btn2.disabled = true; }
     }
   };
 
+  /* ── Canvas-based multi-pass decoder for low-contrast QR codes ──
+     The beacon label is white-on-light-blue (low contrast).
+     We grab raw video frames on a hidden canvas and apply several
+     contrast / inversion transforms before feeding ZXing, so it
+     can binarize the code even when dark/light are close in luminance. */
+
+  var bbStream        = null;
+  var bbFrameLoop     = null;
+  var bbDecodeCanvas  = null;
+  var bbDecodeCtx     = null;
+  var bbHints         = null;
+  var bbReader        = null;   // ZXing.BrowserMultiFormatReader (stateless decode)
+
+  function bbEnsureCanvas(w, h) {
+    if (!bbDecodeCanvas) {
+      bbDecodeCanvas = document.createElement('canvas');
+      bbDecodeCtx    = bbDecodeCanvas.getContext('2d');
+    }
+    if (bbDecodeCanvas.width !== w || bbDecodeCanvas.height !== h) {
+      bbDecodeCanvas.width  = w;
+      bbDecodeCanvas.height = h;
+    }
+  }
+
+  /* Apply a contrast-boost transform to ImageData in place.
+     factor > 1 = more contrast; invert = flip luminance (helps white-on-colour). */
+  function bbBoostContrast(imageData, factor, invert) {
+    var d = imageData.data;
+    var mid = 128;
+    for (var i = 0; i < d.length; i += 4) {
+      var r = d[i], g = d[i+1], b = d[i+2];
+      // Greyscale luminance
+      var lum = 0.299*r + 0.587*g + 0.114*b;
+      // Boost around midpoint
+      var v = mid + (lum - mid) * factor;
+      v = v < 0 ? 0 : v > 255 ? 255 : v;
+      if (invert) v = 255 - v;
+      var vi = Math.round(v);
+      d[i] = d[i+1] = d[i+2] = vi;
+    }
+    return imageData;
+  }
+
+  /* Try to decode one canvas state with ZXing. Returns text or null. */
+  function bbDecodeCanvas1(canvas) {
+    try {
+      var lum  = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+      var bin  = new ZXing.HybridBinarizer(lum);
+      var bmp  = new ZXing.BinaryBitmap(bin);
+      var res  = bbReader.decode(bmp);
+      return res ? res.getText() : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* One frame: draw video → try raw + 4 contrast variants */
+  function bbProcessFrame(videoEl) {
+    if (!videoEl || videoEl.readyState < 2) return null;
+    var vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+    if (!vw || !vh) return null;
+
+    bbEnsureCanvas(vw, vh);
+    var ctx = bbDecodeCtx;
+
+    /* Pass 1 — raw frame */
+    ctx.drawImage(videoEl, 0, 0, vw, vh);
+    var text = bbDecodeCanvas1(bbDecodeCanvas);
+    if (text) return text;
+
+    /* Passes 2–5 — contrast variants */
+    var variants = [
+      [2.5,  false],   // high contrast, normal
+      [2.5,  true ],   // high contrast, inverted  ← key for white-on-blue
+      [4.0,  true ],   // extreme contrast, inverted
+      [1.5,  true ],   // mild contrast, inverted
+    ];
+    for (var vi = 0; vi < variants.length; vi++) {
+      ctx.drawImage(videoEl, 0, 0, vw, vh);
+      var id = ctx.getImageData(0, 0, vw, vh);
+      bbBoostContrast(id, variants[vi][0], variants[vi][1]);
+      ctx.putImageData(id, 0, 0);
+      text = bbDecodeCanvas1(bbDecodeCanvas);
+      if (text) return text;
+    }
+    return null;
+  }
+
   async function bbStartScan() {
-    const errEl = document.getElementById('bb-error');
+    var errEl = document.getElementById('bb-error');
     if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
 
-    if (!bbCodeReader) {
-      if (typeof ZXing === 'undefined' || window._zxingLoadFailed) {
-        bbSetStatus(
-          'QR / barcode library (ZXing) could not be loaded. ' +
-          'Check your internet connection, then reload the page. ' +
-          'You can still use the manual entry option below.',
-          true
-        );
-        return;
-      }
-      try {
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-          ZXing.BarcodeFormat.QR_CODE,
-          ZXing.BarcodeFormat.CODE_128,
-          ZXing.BarcodeFormat.CODE_39,
-          ZXing.BarcodeFormat.EAN_13,
-          ZXing.BarcodeFormat.DATA_MATRIX,
-          ZXing.BarcodeFormat.PDF_417,
-        ]);
-        bbCodeReader = new ZXing.BrowserMultiFormatReader(hints);
-      } catch (e) {
-        bbSetStatus('Failed to initialise QR/barcode reader: ' + (e.message || e), true);
-        return;
-      }
+    if (typeof ZXing === 'undefined' || window._zxingLoadFailed) {
+      bbSetStatus('QR library (ZXing) could not be loaded. Check connection and reload. You can still use manual entry below.', true);
+      return;
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -4486,8 +4547,29 @@ window.ebLoadConfig = ebLoadConfig;
       return;
     }
 
-    const videoEl  = document.getElementById('bb-video');
-    const torchBtn = document.getElementById('bb-torch-btn');
+    // Build hints + reader once
+    if (!bbHints) {
+      bbHints = new Map();
+      bbHints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      bbHints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.QR_CODE,
+        ZXing.BarcodeFormat.DATA_MATRIX,
+        ZXing.BarcodeFormat.CODE_128,
+        ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.EAN_13,
+        ZXing.BarcodeFormat.PDF_417,
+        ZXing.BarcodeFormat.AZTEC,
+      ]);
+    }
+    try {
+      bbReader = new ZXing.BrowserMultiFormatReader(bbHints);
+    } catch(e) {
+      bbSetStatus('Failed to init QR reader: ' + (e.message || e), true);
+      return;
+    }
+
+    var videoEl  = document.getElementById('bb-video');
+    var torchBtn = document.getElementById('bb-torch-btn');
 
     bbUserZoom = 3; bbTorchOn = false;
     bbSetZoom(3);
@@ -4496,27 +4578,23 @@ window.ebLoadConfig = ebLoadConfig;
 
     bbSetStatus('Opening camera...');
 
+    // Request camera stream directly
     try {
-      bbScanControls = await bbCodeReader.decodeFromConstraints(
-        { video: { facingMode: { ideal: 'environment' } } },
-        videoEl,
-        function (result, err) {
-          if (result) {
-            var text = result.getText();
-            if (bbApplySerial(text)) {
-              bbStopScan();
-            } else {
-              bbSetStatus('Read: ' + text.slice(0, 48) + (text.length > 48 ? '...' : '') + ' (not a numeric serial)');
-            }
-          }
-        }
-      );
+      bbStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      videoEl.srcObject = bbStream;
+      await new Promise(function(resolve, reject) {
+        videoEl.onloadedmetadata = resolve;
+        setTimeout(reject, 8000);  // timeout if camera never starts
+      });
+      videoEl.play();
     } catch (e) {
       var isPermission = e.name === 'NotAllowedError' || (e.message || '').toLowerCase().indexOf('ermission') !== -1;
       bbSetStatus(isPermission
         ? 'Camera permission denied — tap the address bar lock and allow Camera.'
         : 'Cannot open camera: ' + (e.message || e), true);
-      bbScanControls = null;
+      bbStream = null;
       bbSetBtnStopped();
       return;
     }
@@ -4525,15 +4603,34 @@ window.ebLoadConfig = ebLoadConfig;
     document.getElementById('bb-controls').classList.add('active');
     var btn = document.getElementById('bb-scan-btn');
     if (btn) btn.innerHTML = 'Stop Scanning';
-    bbSetStatus('Scanning — hold the QR code steady inside the frame...');
+    bbSetStatus('Scanning — hold the QR code steady. Works on low-contrast labels.');
+
+    // Frame loop — runs every ~150 ms to avoid CPU overload on mobile
+    var frameCount = 0;
+    bbFrameLoop = setInterval(function() {
+      if (!bbStream) { clearInterval(bbFrameLoop); bbFrameLoop = null; return; }
+      frameCount++;
+      var text = bbProcessFrame(videoEl);
+      if (text !== null) {
+        if (bbApplySerial(text)) {
+          clearInterval(bbFrameLoop); bbFrameLoop = null;
+          bbStopScan();
+        } else {
+          bbSetStatus('Read: ' + text.slice(0, 48) + (text.length > 48 ? '…' : '') + ' — extracting digits…');
+        }
+      } else if (frameCount % 6 === 0) {
+        // Pulse the status so the user knows it's still scanning
+        bbSetStatus('Scanning… (frame ' + frameCount + ') — hold code inside frame, try torch if dim.');
+      }
+    }, 150);
   }
 
   window.bbStopScan = function () {
-    if (bbScanControls) {
-      try { bbScanControls.stop(); } catch (_) {}
-      bbScanControls = null;
+    if (bbFrameLoop) { clearInterval(bbFrameLoop); bbFrameLoop = null; }
+    if (bbStream) {
+      bbStream.getTracks().forEach(function(t) { try { t.stop(); } catch(_) {} });
+      bbStream = null;
     }
-    try { if (bbCodeReader) { bbCodeReader.reset(); bbCodeReader = null; } } catch (_) { bbCodeReader = null; }
     var videoEl = document.getElementById('bb-video');
     if (videoEl) { videoEl.srcObject = null; videoEl.style.transform = ''; }
     var vc   = document.getElementById('bb-video-container');
@@ -4541,12 +4638,13 @@ window.ebLoadConfig = ebLoadConfig;
     if (vc)   vc.classList.remove('active');
     if (ctrl) ctrl.classList.remove('active');
     bbTorchOn = false; bbUserZoom = 1;
+    if (bbReader) { try { bbReader.reset(); } catch(_) {} bbReader = null; }
     bbSetBtnStopped();
   };
 
   window.bbToggleScan = function () {
-    if (bbScanControls) { bbStopScan(); bbSetStatus('Scanner stopped.'); }
-    else                { bbStartScan(); }
+    if (bbStream || bbFrameLoop) { bbStopScan(); bbSetStatus('Scanner stopped.'); }
+    else                          { bbStartScan(); }
   };
 
   window.bbCopyMac = function () {
