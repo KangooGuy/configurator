@@ -377,6 +377,10 @@
       style="background:transparent;border:1px solid transparent;color:var(--muted);border-radius:6px;padding:5px 13px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent">
       📡 Device Health
     </button>
+    <button id="nav-blebeacon" onclick="selectMode('blebeacon')"
+      style="background:transparent;border:1px solid transparent;color:var(--muted);border-radius:6px;padding:5px 13px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent">
+      📶 BLE Beacon QR
+    </button>
   </nav>
   <div class="topbar-badge" style="margin-left:auto">Internal Tool</div>
 </div>
@@ -1453,22 +1457,234 @@
 
 </div><!-- /#panel-health -->
 
+<!-- ═══════════ BLE BEACON QR ═══════════ -->
+<div id="panel-blebeacon" class="tab-panel">
+  <div class="page-hdr">
+    <h1>BLE Beacon QR — Serial → MAC Converter</h1>
+    <p>Scan the QR code on a BLE Beacon to read its serial number, then convert it to the 6-byte MAC address (byte-reversed big-endian). Works offline — no network required.</p>
+  </div>
+
+  <style>
+    #bb-scanner-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 16px; max-width: 520px; margin: 0 auto;
+    }
+    #bb-top-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    #bb-video-container {
+      position: relative; width: 100%; max-width: 400px;
+      border-radius: var(--radius-lg); overflow: hidden; background: #000;
+      border: 2px solid var(--accent-glow);
+      box-shadow: 0 0 0 1px var(--accent-dim), 0 8px 40px rgba(0,221,179,0.12);
+      display: none;
+    }
+    #bb-video-container.active { display: block; }
+    #bb-video { width: 100%; display: block; border-radius: calc(var(--radius-lg) - 2px); }
+    #bb-scan-overlay {
+      position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center; pointer-events: none;
+    }
+    .bb-scan-frame { width: 200px; height: 200px; position: relative; }
+    .bb-scan-frame::before, .bb-scan-frame::after,
+    .bb-corner-tr, .bb-corner-bl {
+      content: ''; position: absolute; width: 40px; height: 40px;
+      border-color: var(--accent); border-style: solid; border-width: 0;
+    }
+    .bb-scan-frame::before { top:0; left:0; border-top-width:3px; border-left-width:3px; border-radius:6px 0 0 0; }
+    .bb-scan-frame::after  { bottom:0; right:0; border-bottom-width:3px; border-right-width:3px; border-radius:0 0 6px 0; }
+    .bb-corner-tr { top:0; right:0; border-top-width:3px; border-right-width:3px; border-radius:0 6px 0 0; }
+    .bb-corner-bl { bottom:0; left:0; border-bottom-width:3px; border-left-width:3px; border-radius:0 0 0 6px; }
+    .bb-scan-line {
+      position: absolute; left:14px; right:14px; height:2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: bbscan 2s ease-in-out infinite; border-radius:1px;
+    }
+    @keyframes bbscan {
+      0%   { top:14px; opacity:0; }
+      10%  { opacity:1; }
+      90%  { opacity:1; }
+      100% { top:calc(100% - 16px); opacity:0; }
+    }
+    #bb-controls {
+      display: none; width: 100%; max-width: 400px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px;
+      gap: 10px; flex-direction: column;
+    }
+    #bb-controls.active { display: flex; }
+    .bb-ctrl-row { display: flex; align-items: center; gap: 10px; }
+    .bb-ctrl-label {
+      font-size: 0.7rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; min-width: 48px;
+    }
+    .bb-zoom-btn {
+      padding:6px 14px; font-size:0.82rem; font-weight:700;
+      background:var(--surface-3); color:var(--muted);
+      border:1px solid var(--border-hi); border-radius:var(--radius);
+      cursor:pointer; transition:all 0.15s; min-height:36px;
+    }
+    .bb-zoom-btn.active {
+      background:var(--accent-dim); color:var(--accent);
+      border-color:var(--accent-glow);
+    }
+    #bb-torch-btn {
+      padding:5px 12px; font-size:0.78rem; font-weight:700;
+      background:var(--surface-3); color:var(--muted);
+      border:1px solid var(--border-hi); border-radius:var(--radius);
+      cursor:pointer; transition:all 0.15s; white-space:nowrap;
+    }
+    #bb-torch-btn.on { background:var(--warn); color:#000; border-color:transparent; }
+    #bb-status { font-size:0.82rem; color:var(--muted); text-align:center; min-height:20px; }
+    #bb-error { color:var(--danger); font-size:0.78rem; text-align:center; display:none; }
+    #bb-error.show { display:block; }
+    #bb-result-display { display:none; flex-direction:column; align-items:center; gap:10px; width:100%; }
+    #bb-result-display.show { display:flex; }
+    .bb-result-row {
+      width:100%; background:var(--surface-2); border:1px solid var(--accent-glow);
+      border-radius:var(--radius); padding:12px 16px;
+      display:flex; flex-direction:column; gap:4px;
+    }
+    .bb-result-label {
+      font-size:0.7rem; font-weight:700; color:var(--muted);
+      text-transform:uppercase; letter-spacing:0.07em;
+    }
+    .bb-result-value {
+      font-family:var(--mono); font-size:1.05rem; font-weight:700; color:var(--accent);
+      letter-spacing:0.06em; word-break:break-all;
+    }
+    #bb-copy-btn {
+      display:none; align-items:center; justify-content:center; gap:8px;
+      width:100%; max-width:320px; padding:13px 20px; font-size:0.9rem;
+      font-weight:700; border:none; border-radius:var(--radius);
+      cursor:pointer; text-decoration:none; transition:opacity 0.15s;
+      background:var(--accent); color:#000;
+    }
+    #bb-copy-btn.show { display:flex; }
+    #bb-copy-btn:hover { opacity:0.88; }
+    #bb-copy-status { font-size:0.76rem; color:var(--muted); opacity:0; transition:opacity 0.3s; text-align:center; }
+    #bb-copy-status.vis { opacity:1; }
+    #bb-copy-status.suc { color:var(--success); }
+    #bb-manual-input { flex:1; font-family:var(--mono); }
+  </style>
+
+  <div id="bb-scanner-wrap">
+
+    <!-- Scan button -->
+    <div id="bb-top-btns">
+      <button class="btn-p" id="bb-scan-btn" onclick="bbToggleScan()"
+        style="display:flex;align-items:center;gap:8px;padding:11px 22px;font-size:0.9rem">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+          <path d="M2 7V4a1 1 0 0 1 1-1h3M16 3h3a1 1 0 0 1 1 1v3M22 17v3a1 1 0 0 1-1 1h-3M8 21H5a1 1 0 0 1-1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <rect x="7" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="13" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="7" y="13" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M13 13h1M16 13h1M13 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        Scan BLE Beacon QR
+      </button>
+    </div>
+
+    <!-- Camera viewfinder -->
+    <div id="bb-video-container">
+      <video id="bb-video" autoplay playsinline muted></video>
+      <div id="bb-scan-overlay">
+        <div class="bb-scan-frame">
+          <div class="bb-corner-tr"></div>
+          <div class="bb-corner-bl"></div>
+          <div class="bb-scan-line"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls (zoom + torch) -->
+    <div id="bb-controls">
+      <div class="bb-ctrl-row">
+        <span class="bb-ctrl-label">Zoom</span>
+        <button class="bb-zoom-btn active" id="bb-zoom-3" onclick="bbSetZoom(3)">3×</button>
+        <button class="bb-zoom-btn"        id="bb-zoom-4" onclick="bbSetZoom(4)">4×</button>
+        <button class="bb-zoom-btn"        id="bb-zoom-5" onclick="bbSetZoom(5)">5×</button>
+        <button id="bb-torch-btn" onclick="bbToggleTorch()">🔦 Torch</button>
+      </div>
+    </div>
+
+    <div id="bb-status">Point the camera at the BLE Beacon QR code (serial number).</div>
+    <div id="bb-error"></div>
+
+    <!-- Result -->
+    <div id="bb-result-display">
+      <div class="bb-result-row">
+        <div class="bb-result-label">Serial Number (SN)</div>
+        <div class="bb-result-value" id="bb-sn-value">—</div>
+      </div>
+      <div class="bb-result-row">
+        <div class="bb-result-label">MAC Address</div>
+        <div class="bb-result-value" id="bb-mac-value">—</div>
+      </div>
+      <div class="bb-result-row">
+        <div class="bb-result-label">Hex (12-digit, big-endian)</div>
+        <div class="bb-result-value" id="bb-hex-value">—</div>
+      </div>
+    </div>
+
+    <button id="bb-copy-btn" onclick="bbCopyMac()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+        <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Copy MAC Address
+    </button>
+    <div id="bb-copy-status"></div>
+
+    <!-- Divider -->
+    <div class="div" style="width:100%;margin:4px 0"></div>
+
+    <!-- Manual entry -->
+    <div style="width:100%;display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">
+          ⌨️ Manual serial entry
+        </div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
+          Enter the decimal serial number printed on the device label.
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="bb-manual-input" type="text" placeholder="e.g. 50967148090692"
+            style="font-family:var(--mono);flex:1;min-width:0"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+            onkeydown="if(event.key==='Enter')bbApplyManual()">
+          <button class="btn-p" onclick="bbApplyManual()" style="white-space:nowrap;flex-shrink:0">Convert</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hint -->
+    <div class="hint-box" style="width:100%;margin-top:4px">
+      <strong>How the conversion works:</strong> The decimal serial number is converted to a 12-digit hex string, then the 6 bytes are reversed to produce the BLE MAC address.<br>
+      <strong>Example:</strong> SN <span style="font-family:var(--mono);color:var(--accent)">50967148090692</span> → hex <span style="font-family:var(--mono);color:var(--accent)">2E5AB6C1D544</span> → MAC <span style="font-family:var(--mono);color:var(--accent)">44:D5:C1:B6:5A:2E</span>
+    </div>
+
+  </div><!-- /#bb-scanner-wrap -->
+
+</div><!-- /#panel-blebeacon -->
+
 <script>
 /* ══════════════════════════════════════════
    TOP-LEVEL MODE SWITCHER
 ══════════════════════════════════════════ */
 function selectMode(mode) {
-  const isEnergy = mode === 'energy';
-  const isHealth = mode === 'health';
-  const isConfig = !isEnergy && !isHealth;
+  const isEnergy    = mode === 'energy';
+  const isHealth    = mode === 'health';
+  const isBleBeacon = mode === 'blebeacon';
+  const isConfig    = !isEnergy && !isHealth && !isBleBeacon;
 
-  // Stop QR scanner if switching away from health tab
-  if (!isHealth) dhStopScan();
+  // Stop QR scanners when switching away
+  if (!isHealth)    { if (typeof dhStopScan === 'function') dhStopScan(); }
+  if (!isBleBeacon) { if (typeof bbStopScan === 'function') bbStopScan(); }
 
   // Toggle nav button styles
-  const navConfig = document.getElementById('nav-config');
-  const navEnergy = document.getElementById('nav-energy');
-  const navHealth = document.getElementById('nav-health');
+  const navConfig    = document.getElementById('nav-config');
+  const navEnergy    = document.getElementById('nav-energy');
+  const navHealth    = document.getElementById('nav-health');
+  const navBleBeacon = document.getElementById('nav-blebeacon');
 
   function setNav(el, active) {
     if (!el) return;
@@ -1476,9 +1692,10 @@ function selectMode(mode) {
     el.style.border     = active ? '1px solid var(--accent-glow)': '1px solid transparent';
     el.style.color      = active ? 'var(--accent)'               : 'var(--muted)';
   }
-  setNav(navConfig, isConfig);
-  setNav(navEnergy, isEnergy);
-  setNav(navHealth, isHealth);
+  setNav(navConfig,    isConfig);
+  setNav(navEnergy,    isEnergy);
+  setNav(navHealth,    isHealth);
+  setNav(navBleBeacon, isBleBeacon);
 
   // Show/hide device selector bar
   const devBar = document.querySelector('.device-selector-wrap');
@@ -1492,6 +1709,9 @@ function selectMode(mode) {
   } else if (isHealth) {
     const hp = document.getElementById('panel-health');
     if (hp) hp.classList.add('active');
+  } else if (isBleBeacon) {
+    const bp = document.getElementById('panel-blebeacon');
+    if (bp) bp.classList.add('active');
   } else {
     // Restore the currently selected device panel
     const sel = document.getElementById('deviceSelect');
@@ -4109,5 +4329,227 @@ window.ebLoadConfig = ebLoadConfig;
 
 })();
 </script>
+
+<script>
+/* ══════════════════════════════════════════
+   BLE BEACON QR — Serial → MAC Converter
+══════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  let bbScanControls = null;
+  let bbTorchOn      = false;
+  let bbUserZoom     = 1;
+  let bbCodeReader   = null;
+
+  /* ── SN → MAC conversion (mirrors Python serial_to_mac) ── */
+  function serialToMac(serialStr) {
+    const value = BigInt(serialStr.trim());
+    if (value < 0n || value > 0xFFFFFFFFFFFFn) {
+      throw new Error('Serial must fit in 6 bytes (0 – 281474976710655)');
+    }
+    const hex = value.toString(16).toUpperCase().padStart(12, '0');
+    const bytes = [];
+    for (let i = 0; i < 12; i += 2) bytes.push(hex.slice(i, i + 2));
+    const mac = bytes.slice().reverse().join(':');
+    return { mac, hex, hexForward: hex };
+  }
+
+  function bbSetStatus(msg, isErr) {
+    const el  = document.getElementById('bb-status');
+    const err = document.getElementById('bb-error');
+    if (el)  el.textContent  = isErr ? '' : msg;
+    if (err) { err.textContent = isErr ? msg : ''; err.classList.toggle('show', !!isErr); }
+  }
+
+  function bbSetBtnStopped() {
+    const btn = document.getElementById('bb-scan-btn');
+    if (!btn) return;
+    btn.innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">' +
+      '<path d="M2 7V4a1 1 0 0 1 1-1h3M16 3h3a1 1 0 0 1 1 1v3M22 17v3a1 1 0 0 1-1 1h-3M8 21H5a1 1 0 0 1-1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
+      '<rect x="7" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
+      '<rect x="13" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
+      '<rect x="7" y="13" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>' +
+      '<path d="M13 13h1M16 13h1M13 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Scan BLE Beacon QR';
+  }
+
+  function bbApplySerial(raw) {
+    const cleaned = (raw || '').trim().replace(/[^0-9]/g, '');
+    if (!cleaned) return false;
+    let result;
+    try {
+      result = serialToMac(cleaned);
+    } catch (e) {
+      bbSetStatus(e.message, true);
+      return false;
+    }
+    document.getElementById('bb-sn-value').textContent  = cleaned;
+    document.getElementById('bb-mac-value').textContent = result.mac;
+    document.getElementById('bb-hex-value').textContent = result.hex;
+    const disp = document.getElementById('bb-result-display');
+    if (disp) disp.classList.add('show');
+    const copyBtn = document.getElementById('bb-copy-btn');
+    if (copyBtn) copyBtn.classList.add('show');
+    bbSetStatus('Serial decoded — MAC address ready.');
+    return true;
+  }
+
+  window.bbApplyManual = function () {
+    const inp = document.getElementById('bb-manual-input');
+    if (inp && inp.value.trim()) bbApplySerial(inp.value.trim());
+  };
+
+  window.bbSetZoom = function (z) {
+    bbUserZoom = z;
+    [3, 4, 5].forEach(function(n) {
+      var btn = document.getElementById('bb-zoom-' + n);
+      if (btn) btn.classList.toggle('active', n === z);
+    });
+    const video = document.getElementById('bb-video');
+    if (video) video.style.transform = z === 1 ? '' : 'scale(' + z + ')';
+    if (video && video.srcObject) {
+      const track = video.srcObject.getVideoTracks()[0];
+      if (track) {
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        if (caps.zoom) {
+          const nz = caps.zoom.min + (caps.zoom.max - caps.zoom.min) * ((z - 1) / 7);
+          track.applyConstraints({ advanced: [{ zoom: Math.max(caps.zoom.min, Math.min(caps.zoom.max, nz)) }] }).catch(function(){});
+        }
+      }
+    }
+  };
+
+  window.bbToggleTorch = async function () {
+    const video  = document.getElementById('bb-video');
+    const stream = video && video.srcObject;
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
+    bbTorchOn = !bbTorchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: bbTorchOn }] });
+      const btn = document.getElementById('bb-torch-btn');
+      if (btn) { btn.textContent = bbTorchOn ? 'Torch ON' : '🔦 Torch'; btn.classList.toggle('on', bbTorchOn); }
+    } catch (_) {
+      bbTorchOn = false;
+      const btn = document.getElementById('bb-torch-btn');
+      if (btn) { btn.textContent = 'Torch N/A'; btn.disabled = true; }
+    }
+  };
+
+  async function bbStartScan() {
+    const errEl = document.getElementById('bb-error');
+    if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
+
+    if (!bbCodeReader) {
+      if (typeof ZXing === 'undefined' || window._zxingLoadFailed) {
+        bbSetStatus(
+          'QR / barcode library (ZXing) could not be loaded. ' +
+          'Check your internet connection, then reload the page. ' +
+          'You can still use the manual entry option below.',
+          true
+        );
+        return;
+      }
+      try {
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+          ZXing.BarcodeFormat.QR_CODE,
+          ZXing.BarcodeFormat.CODE_128,
+          ZXing.BarcodeFormat.CODE_39,
+          ZXing.BarcodeFormat.EAN_13,
+          ZXing.BarcodeFormat.DATA_MATRIX,
+          ZXing.BarcodeFormat.PDF_417,
+        ]);
+        bbCodeReader = new ZXing.BrowserMultiFormatReader(hints);
+      } catch (e) {
+        bbSetStatus('Failed to initialise QR/barcode reader: ' + (e.message || e), true);
+        return;
+      }
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      bbSetStatus('Camera API not available. Page must be served over HTTPS.', true);
+      return;
+    }
+
+    const videoEl  = document.getElementById('bb-video');
+    const torchBtn = document.getElementById('bb-torch-btn');
+
+    bbUserZoom = 3; bbTorchOn = false;
+    bbSetZoom(3);
+    if (torchBtn) { torchBtn.textContent = '🔦 Torch'; torchBtn.classList.remove('on'); torchBtn.disabled = false; }
+    if (videoEl)  videoEl.style.transform = '';
+
+    bbSetStatus('Opening camera...');
+
+    try {
+      bbScanControls = await bbCodeReader.decodeFromConstraints(
+        { video: { facingMode: { ideal: 'environment' } } },
+        videoEl,
+        function (result, err) {
+          if (result) {
+            var text = result.getText();
+            if (bbApplySerial(text)) {
+              bbStopScan();
+            } else {
+              bbSetStatus('Read: ' + text.slice(0, 48) + (text.length > 48 ? '...' : '') + ' (not a numeric serial)');
+            }
+          }
+        }
+      );
+    } catch (e) {
+      var isPermission = e.name === 'NotAllowedError' || (e.message || '').toLowerCase().indexOf('ermission') !== -1;
+      bbSetStatus(isPermission
+        ? 'Camera permission denied — tap the address bar lock and allow Camera.'
+        : 'Cannot open camera: ' + (e.message || e), true);
+      bbScanControls = null;
+      bbSetBtnStopped();
+      return;
+    }
+
+    document.getElementById('bb-video-container').classList.add('active');
+    document.getElementById('bb-controls').classList.add('active');
+    var btn = document.getElementById('bb-scan-btn');
+    if (btn) btn.innerHTML = 'Stop Scanning';
+    bbSetStatus('Scanning — hold the QR code steady inside the frame...');
+  }
+
+  window.bbStopScan = function () {
+    if (bbScanControls) {
+      try { bbScanControls.stop(); } catch (_) {}
+      bbScanControls = null;
+    }
+    try { if (bbCodeReader) { bbCodeReader.reset(); bbCodeReader = null; } } catch (_) { bbCodeReader = null; }
+    var videoEl = document.getElementById('bb-video');
+    if (videoEl) { videoEl.srcObject = null; videoEl.style.transform = ''; }
+    var vc   = document.getElementById('bb-video-container');
+    var ctrl = document.getElementById('bb-controls');
+    if (vc)   vc.classList.remove('active');
+    if (ctrl) ctrl.classList.remove('active');
+    bbTorchOn = false; bbUserZoom = 1;
+    bbSetBtnStopped();
+  };
+
+  window.bbToggleScan = function () {
+    if (bbScanControls) { bbStopScan(); bbSetStatus('Scanner stopped.'); }
+    else                { bbStartScan(); }
+  };
+
+  window.bbCopyMac = function () {
+    const macEl = document.getElementById('bb-mac-value');
+    const mac   = macEl ? macEl.textContent : '';
+    if (!mac || mac === '—') return;
+    const statusEl = document.getElementById('bb-copy-status');
+    navigator.clipboard.writeText(mac).then(function () {
+      if (statusEl) { statusEl.textContent = 'Copied!'; statusEl.className = 'copy-status suc vis'; setTimeout(() => statusEl.classList.remove('vis'), 2500); }
+    }).catch(function () {
+      if (statusEl) { statusEl.textContent = 'Copy failed'; statusEl.className = 'copy-status err vis'; setTimeout(() => statusEl.classList.remove('vis'), 2500); }
+    });
+  };
+
+})();
 </body>
 </html>
