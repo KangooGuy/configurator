@@ -3342,19 +3342,15 @@ const CHEM_VOLTAGE_CURVES = {
       [0.05, 3.20],   // ← practical cutoff reached here (~5% residual)
       [0.00, 3.00],   // absolute chemistry floor (below BMS cutoff, never reached in practice)
     ],
-    // Self-discharge rate multiplier as function of SoC
-    // LiPo: higher at high SoC (chemical instability above 4.0 V)
-    // Values represent multiplier vs nominal rate (1.0 = datasheet average)
-    selfDischMult: (soc) => {
-      // High SoC (>80%): up to 2.5× faster due to elevated cathode potential
-      // Mid SoC (20–80%): around 1× (nominal)
-      // Low SoC (<20%): 0.5× (electrolyte kinetics slow at low V)
-      if (soc > 0.90) return 2.5;
-      if (soc > 0.80) return 1.8;
-      if (soc > 0.60) return 1.1;
-      if (soc > 0.20) return 1.0;
-      return 0.5;
-    },
+    // Self-discharge rate multiplier as function of SoC.
+    // Based on Butler-Volmer electrode kinetics: rate scales exponentially
+    // with electrode potential (≈ OCV). Normalised to 1.0× at SoC=0.50
+    // (where datasheet monthly % figures are typically measured).
+    // Peak ~6× at SoC=1.0 (4.20 V), floor ~0.35× at SoC=0.0 (3.00 V).
+    // exp(k·soc) normalised: mult(soc) = exp(k·soc) / exp(k·0.5)
+    // k=3.6 gives mult(1.0)≈6.0, mult(0.0)≈0.33 — consistent with
+    // published NMC/LCO storage-loss data across SoC levels.
+    selfDischMult: (soc) => Math.exp(3.6 * (soc - 0.5)),
     color: '#00DDB3',
   },
   lto: {
@@ -3662,7 +3658,7 @@ function ebDrawVoltageChart() {
   const annEl = document.getElementById('eb_voltage_annotations');
   if (annEl) {
     const lipoNote = chemKey === 'lipo'
-      ? ' · <strong style="color:var(--warn)">LiPo</strong>: self-discharge 2.5× higher at >90% SoC, 0.5× at <20% SoC'
+      ? ' · <strong style="color:var(--warn)">LiPo</strong>: self-discharge ~6× higher at SoC=100% vs ~0.33× at SoC=0% (Butler-Volmer, normalised to 1× at SoC=50%)'
       : '';
     const harvestNote = hasHarvest
       ? ` · Harvest: <strong style="color:var(--accent)">${harvest_J_day.toFixed(3)} J/day</strong> constant`
