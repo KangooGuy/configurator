@@ -827,6 +827,19 @@
         </div>
         <div class="frow">
           <div class="field">
+            <label for="eb_vovdis" style="display:flex;align-items:center;gap:6px">
+              System cutoff voltage — V<sub>OVDIS</sub> (V)
+              <span title="Under-voltage disconnect threshold of your harvesting/PMIC IC (e.g. AEM13921 VOVDIS register). The voltage chart stops here — the cell's own PCM cutoff is a last-resort backstop below this." style="cursor:help;color:var(--muted);font-size:0.8em">ⓘ</span>
+            </label>
+            <input type="number" id="eb_vovdis" value="3.206" min="2.0" max="4.1" step="0.001" onchange="ebCalc()">
+          </div>
+          <div class="field">
+            <label style="color:var(--muted);font-size:0.7rem;margin-bottom:5px">Cell PCM cutoff (fixed)</label>
+            <div class="result-box" id="eb_pcm_cutoff_display" style="padding:8px 11px;min-height:34px;font-size:0.82rem;line-height:1.4;color:var(--muted)">—</div>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field">
             <label for="eb_design_margin">Safety design margin (%)</label>
             <input type="number" id="eb_design_margin" value="40" min="0" max="200" step="1">
           </div>
@@ -2820,12 +2833,17 @@ const DEVICES = {
 };
 
 // Battery chemistry presets
-// self_discharge_pct_month: % of total capacity lost per month to self-discharge
+// self_discharge_pct_month: average % capacity lost per month over a full discharge cycle.
+// For LiPo: iBorn PL402445 datasheet specifies ≤10%/month at SoC=100% (peak rate).
+// With Butler-Volmer SoC-dependence (k=3.6, anchored at SoC=1.0), the cycle-average is:
+//   10% × ∫₀¹ exp(3.6×(s-1)) ds = 10% × (1-exp(-3.6))/3.6 ≈ 2.4%/month
+// This is used for the lifetime energy budget; the voltage chart applies the full
+// SoC-dependent multiplier curve for accurate per-step simulation.
 const CHEMISTRIES = {
-  lipo:    { label: 'LiPo (rechargeable)',         V_nom: 3.7, self_discharge_pct_month: 3.0   },
-  lto:     { label: 'Li-Titanate LTO (rechargeable)', V_nom: 2.4, self_discharge_pct_month: 0.3 },  // ~3%/yr
-  primary: { label: 'Primary Li (Energizer L91)',   V_nom: 3.6, self_discharge_pct_month: 0.025 },  // ~0.3%/yr
-  lisocl2: { label: 'Li-SOCl₂ (industrial)',        V_nom: 3.6, self_discharge_pct_month: 0.08  },  // ~1%/yr
+  lipo:    { label: 'LiPo (rechargeable)',            V_nom: 3.7, self_discharge_pct_month: 2.4   },  // iBorn PL402445 derived
+  lto:     { label: 'Li-Titanate LTO (rechargeable)', V_nom: 2.4, self_discharge_pct_month: 0.3   },  // ~3%/yr
+  primary: { label: 'Primary Li (Energizer L91)',     V_nom: 3.6, self_discharge_pct_month: 0.025 },  // ~0.3%/yr
+  lisocl2: { label: 'Li-SOCl₂ (industrial)',          V_nom: 3.6, self_discharge_pct_month: 0.08  },  // ~1%/yr
 };
 
 function eb(id) { return document.getElementById('eb_' + id); }
@@ -2840,6 +2858,7 @@ function ebGetConfig() {
     chem:              g('chem').value,
     bat_mAh:           fv('bat_mAh',  450),
     voltage:           fv('voltage',  3.7),
+    vovdis:            fv('vovdis',   3.206),  // system-level under-voltage disconnect (e.g. AEM13921)
     sf:                iv('sf',        9),
     batch_size:        Math.max(1, iv('batch_size', 10)),
     etx:               Math.max(1, Math.min(3, fv('etx', 1.2))),
@@ -3269,6 +3288,13 @@ function ebCalc() {
 
   ebDrawDonut(energyComponents, totalOut_J_day, harvest_J_day);
 
+  // ── PCM cutoff display ──
+  const pcmEl = document.getElementById('eb_pcm_cutoff_display');
+  if (pcmEl) {
+    const _ch = CHEM_VOLTAGE_CURVES[c.chem] || CHEM_VOLTAGE_CURVES.lipo;
+    pcmEl.textContent = `${_ch.vCutoff.toFixed(2)} V (cell PCM) — system cuts at ${c.vovdis.toFixed(3)} V`;
+  }
+
   // ── Snapshot for PDF export ──
   window._ebExportData = {
     c, dev, chem, V,
@@ -3319,14 +3345,11 @@ const CHEM_VOLTAGE_CURVES = {
     label: 'LiPo',
     vFull:  4.20,
     vNom:   3.70,
-    // 3.20 V: practical device/BMS cutoff (protection PCB triggers at ~3.0 V,
-    // but firmware low-battery shutdown and typical device EOL is 3.2–3.3 V).
-    // At 3.20 V the cell still has ~3–5% residual SoC — appropriate for a
-    // "usable end-of-life" threshold rather than the absolute chemistry floor.
-    vCutoff: 3.20,
-    // SoC points [fraction 0→1, OCV in V]
-    // Matches typical NMC/LCO LiPo discharge at 0.1–0.2 C; below 5% the
-    // voltage drops sharply — only ~3% of capacity remains below 3.20 V.
+    // 3.00 V: confirmed by iBorn PL402445 datasheet — PCM (S-8261DAA) over-discharge
+    // detection at 3.00 ±0.05 V. Nominal capacity spec also measured to 3.0 V cut-off.
+    vCutoff: 3.00,
+    // SoC → OCV curve for LiPo (NMC/LCO cathode), 0.2C discharge, 25°C
+    // Consistent with iBorn PL402445: Vnom=3.7V, Vfull=4.2V, Vcutoff=3.0V
     socV: [
       [1.00, 4.20],
       [0.95, 4.10],
@@ -3339,18 +3362,17 @@ const CHEM_VOLTAGE_CURVES = {
       [0.30, 3.60],
       [0.20, 3.50],
       [0.10, 3.35],
-      [0.05, 3.20],   // ← practical cutoff reached here (~5% residual)
-      [0.00, 3.00],   // absolute chemistry floor (below BMS cutoff, never reached in practice)
+      [0.05, 3.18],
+      [0.00, 3.00],  // PCM cut-off voltage per datasheet
     ],
-    // Self-discharge rate multiplier as function of SoC.
-    // Based on Butler-Volmer electrode kinetics: rate scales exponentially
-    // with electrode potential (≈ OCV). Normalised to 1.0× at SoC=0.50
-    // (where datasheet monthly % figures are typically measured).
-    // Peak ~6× at SoC=1.0 (4.20 V), floor ~0.35× at SoC=0.0 (3.00 V).
-    // exp(k·soc) normalised: mult(soc) = exp(k·soc) / exp(k·0.5)
-    // k=3.6 gives mult(1.0)≈6.0, mult(0.0)≈0.33 — consistent with
-    // published NMC/LCO storage-loss data across SoC levels.
-    selfDischMult: (soc) => Math.exp(3.6 * (soc - 0.5)),
+    // Self-discharge multiplier vs SoC, anchored at SoC=1.0 (= 1.0×).
+    // iBorn datasheet measures self-discharge at full charge (SoC=100%),
+    // so 1.0× corresponds to that condition. Butler-Volmer exponential:
+    //   mult(soc) = exp(k × (soc − 1.0))
+    // k=3.6 → mult(0.5) ≈ 0.165×, mult(0.0) ≈ 0.027×
+    // Meaning: at SoC=50% the rate is ~6× lower than at full charge,
+    // at SoC=0% it is ~37× lower — consistent with published NMC storage data.
+    selfDischMult: (soc) => Math.exp(3.6 * (soc - 1.0)),
     color: '#00DDB3',
   },
   lto: {
@@ -3460,41 +3482,48 @@ function ebDrawVoltageChart() {
   // Formula kept identical to the banner:
   //   netOut = totalOut_J_day * (1 + marginFrac) − harvest_J_day
   //   simLife = total_bat_J / netOut
-  // The SoC simulation is then walked step-by-step with SoC-dependent
-  // self-discharge (LiPo only), but the *average* rate per step is normalised
-  // so that the total energy drained over simLife equals total_bat_J — i.e.
-  // the curve endpoint lands exactly on the banner lifetime.
+  // Self-discharge is redistributed by the SoC-dependent multiplier (LiPo)
+  // but its *integral over the lifetime* is conserved to match the energy budget,
+  // so the 40% margin curve endpoint equals the banner lifetime exactly.
+  //
+  // selfDischMult is anchored at SoC=1.0 (= 1.0×, = datasheet peak rate).
+  // selfDischarge_J_day in the energy budget is the cycle-average rate.
+  // To recover the peak rate: sd_peak = sd_avg / cycleAvgMult
+  // where cycleAvgMult = ∫₀¹ mult(s) ds (numerically pre-computed for k=3.6):
+  //   ∫₀¹ exp(3.6(s-1)) ds = (1 - exp(-3.6))/3.6 ≈ 0.2465
+  const SD_CYCLE_AVG_MULT = (1 - Math.exp(-3.6)) / 3.6;  // ≈ 0.2465 for LiPo k=3.6
+  const sdCycleNorm = chemKey === 'lipo' ? SD_CYCLE_AVG_MULT : 1.0;
+
   function simulateCurve(marginFrac) {
     const netOut_J_day = totalOut_J_day * (1 + marginFrac) - harvest_J_day;
-    if (netOut_J_day <= 0) return null; // harvest exceeds consumption
+    if (netOut_J_day <= 0) return null;
 
-    const simLife = capJ / netOut_J_day;           // matches banner for margin = c.design_margin
+    const simLife = capJ / netOut_J_day;
     const endDays = Math.min(simLife, 3650);
     if (endDays < 1) return null;
 
     const stepDays = Math.max(0.5, endDays / 400);
 
-    // Self-discharge base fraction per day at the nominal SoC (~50%)
-    // The SoC-dependent multiplier redistributes it over time but the
-    // integrated total is preserved to match the banner energy budget.
-    const sdBase_J_day  = selfDischarge_J_day;
-    const activeNet_J_day = netOut_J_day - sdBase_J_day; // active+harvest already in netOut
+    // sd_peak_J_day: peak self-discharge rate at SoC=1.0 (datasheet condition).
+    // Dividing by sdCycleNorm converts from cycle-average back to peak so that
+    // when the multiplier is applied step-by-step, the integrated total matches
+    // selfDischarge_J_day (the energy budget figure).
+    const sd_peak_J_day  = selfDischarge_J_day / sdCycleNorm;
+    const activeNet_J_day = netOut_J_day - selfDischarge_J_day;
 
     const pts = [];
     let soc = 1.0, day = 0;
-    const vCutoff = ch.vCutoff;
+    const vCutoff = Math.max(c.vovdis, ch.vCutoff);  // stop at system cutoff (VOVDIS); cell PCM is backstop
 
     while (day <= endDays + stepDays) {
       const v = socToVoltage(soc, chemKey);
       pts.push({ day, soc, v });
-      if (soc <= 0.001 || v <= vCutoff) break;   // stop at BMS cutoff voltage
+      if (soc <= 0.001 || v <= vCutoff) break;
 
-      // Self-discharge this step — SoC-dependent multiplier (LiPo only)
-      const sdMult = ch.selfDischMult(soc);
-      // Normalise multiplier so average over the lifetime equals sdBase
-      // (simple approximation: divide by the mean multiplier at mid-SoC ≈ 1.0)
-      const sdFrac   = (sdBase_J_day * sdMult * stepDays) / capJ;
-      const actFrac  = (activeNet_J_day * stepDays) / capJ;
+      // SoC-dependent self-discharge: mult(1.0)=1.0× (peak), decreasing as SoC falls
+      const sdMult  = ch.selfDischMult(soc);
+      const sdFrac  = (sd_peak_J_day * sdMult * stepDays) / capJ;
+      const actFrac = (activeNet_J_day * stepDays) / capJ;
 
       soc = Math.max(0, soc - sdFrac - actFrac);
       day += stepDays;
@@ -3571,10 +3600,20 @@ function ebDrawVoltageChart() {
     out += `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${padT+plotH}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
   }
 
-  // Cutoff line
+  // VOVDIS line — system cutoff (AEM13921), solid orange: this is where the curves stop
+  const vovdis = c.vovdis;
+  const yVovdis = yScale(vovdis);
+  if (yVovdis >= padT && yVovdis <= padT + plotH) {
+    out += `<line x1="${padL}" y1="${yVovdis.toFixed(1)}" x2="${W-padR}" y2="${yVovdis.toFixed(1)}" stroke="rgba(245,166,35,0.6)" stroke-width="1.2"/>`;
+    out += `<text x="${W-padR-2}" y="${(yVovdis-3).toFixed(1)}" fill="rgba(245,166,35,0.85)" font-size="9" text-anchor="end" font-family="IBM Plex Mono,monospace">V_OVDIS ${vovdis.toFixed(3)} V</text>`;
+  }
+
+  // PCM line — cell last-resort cutoff (iBorn PCM), dashed red: backstop, never reached in normal use
   const yCutoff = yScale(ch.vCutoff);
-  out += `<line x1="${padL}" y1="${yCutoff.toFixed(1)}" x2="${W-padR}" y2="${yCutoff.toFixed(1)}" stroke="rgba(255,82,82,0.35)" stroke-width="1" stroke-dasharray="4 3"/>`;
-  out += `<text x="${W-padR-2}" y="${(yCutoff-3).toFixed(1)}" fill="rgba(255,82,82,0.7)" font-size="9" text-anchor="end" font-family="IBM Plex Mono,monospace">cutoff ${ch.vCutoff.toFixed(2)} V</text>`;
+  if (yCutoff >= padT && yCutoff <= padT + plotH) {
+    out += `<line x1="${padL}" y1="${yCutoff.toFixed(1)}" x2="${W-padR}" y2="${yCutoff.toFixed(1)}" stroke="rgba(255,82,82,0.3)" stroke-width="1" stroke-dasharray="4 3"/>`;
+    out += `<text x="${W-padR-2}" y="${(yCutoff-3).toFixed(1)}" fill="rgba(255,82,82,0.5)" font-size="9" text-anchor="end" font-family="IBM Plex Mono,monospace">PCM ${ch.vCutoff.toFixed(2)} V</text>`;
+  }
 
   // Nominal voltage line
   const yNom = yScale(ch.vNom);
@@ -3638,7 +3677,6 @@ function ebDrawVoltageChart() {
       const style = cr.dasharray !== '3 0'
         ? `border-top:2px dashed ${cr.stroke};background:none`
         : `background:${cr.stroke}`;
-      // Compute lifetime for this curve
       const pts = cr.pts;
       const endDay = pts ? pts[pts.length-1].day : 0;
       const life = fmtX(endDay);
@@ -3649,7 +3687,8 @@ function ebDrawVoltageChart() {
     };
     legEl.innerHTML = [
       ...validCurves.map(lineItem),
-      `<span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:22px;height:2px;border-top:2px dashed rgba(255,82,82,0.7);background:none"></span> Cutoff (EOL)</span>`,
+      `<span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:22px;height:2px;background:rgba(245,166,35,0.8);border-radius:1px"></span> V_OVDIS ${vovdis.toFixed(3)} V (system cutoff)</span>`,
+      `<span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:22px;height:2px;border-top:2px dashed rgba(255,82,82,0.5);background:none"></span> PCM ${ch.vCutoff.toFixed(2)} V (cell backstop)</span>`,
       hasHarvest ? `<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block"></span> Harvest (constant lux)</span>` : '',
     ].filter(Boolean).join('');
   }
@@ -3658,8 +3697,9 @@ function ebDrawVoltageChart() {
   const annEl = document.getElementById('eb_voltage_annotations');
   if (annEl) {
     const lipoNote = chemKey === 'lipo'
-      ? ' · <strong style="color:var(--warn)">LiPo</strong>: self-discharge ~6× higher at SoC=100% vs ~0.33× at SoC=0% (Butler-Volmer, normalised to 1× at SoC=50%)'
+      ? ' · <strong style="color:var(--warn)">LiPo (iBorn PL402445)</strong>: self-discharge anchored at SoC=100% (≤10%/month per datasheet); Butler-Volmer k=3.6'
       : '';
+    const cutoffNote = ` · Curves stop at <strong style="color:rgba(245,166,35,0.9)">V_OVDIS ${vovdis.toFixed(3)} V</strong> (system) — cell PCM backstop at ${ch.vCutoff.toFixed(2)} V`;
     const harvestNote = hasHarvest
       ? ` · Harvest: <strong style="color:var(--accent)">${harvest_J_day.toFixed(3)} J/day</strong> constant`
       : '';
@@ -3667,7 +3707,7 @@ function ebDrawVoltageChart() {
     const c40 = validCurves.find(cr => cr.margin === 0.40);
     const span0  = c0  ? `<strong style="color:${c0.stroke}">${fmtX(c0.pts[c0.pts.length-1].day)}</strong>` : '—';
     const span40 = c40 ? `<strong style="color:${c40.stroke}">${fmtX(c40.pts[c40.pts.length-1].day)}</strong>` : '—';
-    annEl.innerHTML = `Best case (0% margin): ${span0} &nbsp;·&nbsp; Design target (40% margin): ${span40} <span style="color:var(--accent);font-size:0.9em">← matches Estimated Battery Life above</span>` + lipoNote + harvestNote;
+    annEl.innerHTML = `Best case (0% margin): ${span0} &nbsp;·&nbsp; Design target (40% margin): ${span40} <span style="color:var(--accent);font-size:0.9em">← matches Estimated Battery Life above</span>` + lipoNote + cutoffNote + harvestNote;
   }
 }
 
@@ -3861,7 +3901,7 @@ function ebOnDeviceChange() {
 
 // Wire up all inputs
 function ebInit() {
-  ['device','chem','bat_mAh','voltage','design_margin','sf','batch_size','etx','indoor_pct',
+  ['device','chem','bat_mAh','voltage','vovdis','design_margin','sf','batch_size','etx','indoor_pct',
    'moving_interval_s','steady_interval_s','movement_h','hb_interval_s',
    'wifi_en','gnss_en','ble_en','ble_max_beacons',
    'ev_idle_uA','ev_gnss_a_mA','ev_gnss_a_s','ev_gnss_auto_mA','ev_gnss_auto_s',
