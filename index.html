@@ -3373,6 +3373,8 @@ const CHEM_VOLTAGE_CURVES = {
     // Meaning: at SoC=50% the rate is ~6× lower than at full charge,
     // at SoC=0% it is ~37× lower — consistent with published NMC storage data.
     selfDischMult: (soc) => Math.exp(3.6 * (soc - 1.0)),
+    // Calendar life: LiPo degrades by aging regardless of usage; ~10 yr max even at light load.
+    calendarLifeYears: 10,
     color: '#00DDB3',
   },
   lto: {
@@ -3395,6 +3397,7 @@ const CHEM_VOLTAGE_CURVES = {
     ],
     // LTO: very flat self-discharge across SoC — virtually no SoC dependence
     selfDischMult: (soc) => 1.0,
+    calendarLifeYears: 20,  // LTO has exceptional calendar life
     color: '#3a9fff',
   },
   primary: {
@@ -3419,6 +3422,7 @@ const CHEM_VOLTAGE_CURVES = {
     ],
     // Primary Li: self-discharge extremely low and SoC-independent
     selfDischMult: (soc) => 1.0,
+    calendarLifeYears: 15,  // Energizer L91 shelf life ~20 yr; 15 yr conservative
     color: '#f5a623',
   },
   lisocl2: {
@@ -3443,6 +3447,7 @@ const CHEM_VOLTAGE_CURVES = {
     ],
     // Li-SOCl₂: extremely flat; slight increase at high SoC
     selfDischMult: (soc) => soc > 0.90 ? 1.3 : 1.0,
+    calendarLifeYears: 20,  // Li-SOCl₂ has very long shelf/calendar life
     color: '#ff6b6b',
   },
 };
@@ -3482,47 +3487,64 @@ function ebDrawVoltageChart() {
   // Formula kept identical to the banner:
   //   netOut = totalOut_J_day * (1 + marginFrac) − harvest_J_day
   //   simLife = total_bat_J / netOut
-  // Self-discharge is redistributed by the SoC-dependent multiplier (LiPo)
-  // but its *integral over the lifetime* is conserved to match the energy budget,
-  // so the 40% margin curve endpoint equals the banner lifetime exactly.
-  // SD_CYCLE_AVG_MULT: ∫₀¹ exp(3.6(s-1)) ds = (1-exp(-3.6))/3.6 ≈ 0.2465
-  // Used to recover the peak sd rate from the cycle-average stored in selfDischarge_J_day.
-  const SD_CYCLE_AVG_MULT = (1 - Math.exp(-3.6)) / 3.6;
-  const sdCycleNorm = chemKey === 'lipo' ? SD_CYCLE_AVG_MULT : 1.0;
+  // Net SoC traversal model.
+  //
+  // The banner lifetime is simLife = total_bat_J / netOut_J_day, where
+  // netOut = totalOut·(1+margin) − harvest. Over simLife the cell must traverse
+  // from SoC=1.0 down to the cutoff SoC. The NET drain already accounts for
+  // self-discharge AND harvest, so we must NOT add self-discharge again.
+  //
+  // The SoC-dependent self-discharge (LiPo) only changes the *shape* of the
+  // descent — faster near full charge, slower near empty — without changing
+  // the total energy removed. We model this with a shape factor f(soc) whose
+  // mean over the SoC range equals 1.0, so the integral (and the lifetime)
+  // is conserved exactly. f blends a flat active component with the
+  // SoC-dependent self-discharge fraction.
+  //
+  // sdShare = fraction of net drain attributable to self-discharge (vs active load)
+  const sdShareRaw = totalOut_J_day > 0 ? (selfDischarge_J_day / totalOut_J_day) : 0;
+
+  // Mean of the self-discharge multiplier over a uniform SoC sweep (for normalisation)
+  function meanMult() {
+    let s = 0; const N = 100;
+    for (let i = 0; i < N; i++) s += ch.selfDischMult((i + 0.5) / N);
+    return s / N;
+  }
+  const mMult = meanMult();
 
   function simulateCurve(marginFrac) {
     const netOut_J_day = totalOut_J_day * (1 + marginFrac) - harvest_J_day;
     if (netOut_J_day <= 0) return null;
 
-    const simLife  = capJ / netOut_J_day;            // matches banner lifetime exactly
-    const endDays  = Math.min(simLife, 3650);
-    if (endDays < 1) return null;
+    const energyLife = capJ / netOut_J_day;              // energy-budget lifetime
+    const calLifeDays = (ch.calendarLifeYears || 10) * 365.25;
+    const simLife  = Math.min(energyLife, calLifeDays);  // capped by calendar aging
+    const cappedByCalendar = calLifeDays < energyLife;
+    if (simLife < 1) return null;
 
-    const stepDays = Math.max(0.5, endDays / 400);
-
-    // Split netOut into sd portion (SoC-redistributed) and active portion (constant).
-    // sd_peak is normalised so that ∫ sd_peak·mult(soc) dt == selfDischarge_J_day·simLife.
-    // active_J_day carries the remainder, keeping the total drain == netOut_J_day.
-    const sd_avg_J_day  = selfDischarge_J_day;
-    const sd_peak_J_day = sd_avg_J_day / sdCycleNorm;   // peak rate at SoC=1
-    const active_J_day  = netOut_J_day - sd_avg_J_day;  // constant load + margin - avg sd
+    const stepDays = Math.max(0.5, Math.min(simLife, 3650) / 400);
+    const vCutoff  = Math.max(c.vovdis, ch.vCutoff);
 
     const pts = [];
     let soc = 1.0, day = 0;
-    const vCutoff = Math.max(c.vovdis, ch.vCutoff);
+    let endReason = 'voltage';
 
     while (day <= simLife + stepDays) {
       const v = socToVoltage(soc, chemKey);
       pts.push({ day, soc, v });
-      if (v <= vCutoff || soc <= 0.001) break;
+      if (v <= vCutoff || soc <= 0.001) { endReason = 'voltage'; break; }
+      if (day >= simLife)              { endReason = cappedByCalendar ? 'calendar' : 'voltage'; break; }
 
-      const sdMult  = ch.selfDischMult(soc);
-      const sdFrac  = (sd_peak_J_day * sdMult * stepDays) / capJ;
-      const actFrac = (active_J_day           * stepDays) / capJ;
+      // Shape factor: the self-discharge share of the drain is modulated by
+      // mult(soc)/meanMult (mean 1.0); the active share stays flat (factor 1.0).
+      // Overall factor averages to 1.0 → total drain == netOut over energyLife.
+      const sdShape = sdShareRaw * (ch.selfDischMult(soc) / mMult) + (1 - sdShareRaw);
+      const dSoc = (netOut_J_day * sdShape * stepDays) / capJ;
 
-      soc = Math.max(0, soc - sdFrac - actFrac);
+      soc = Math.max(0, soc - dSoc);
       day += stepDays;
     }
+    pts.endReason = endReason;
     return pts;
   }
 
@@ -3559,13 +3581,31 @@ function ebDrawVoltageChart() {
     else xScaleMode = 'days';
   }
   const fmtX = d => {
-    if (xScaleMode === 'years')  return (d/365.25).toFixed(1)+' yr';
-    if (xScaleMode === 'months') return (d/30.44).toFixed(1)+' mo';
-    return d.toFixed(0)+' d';
+    const fmt = (x, u) => {
+      const r = Math.round(x * 10) / 10;
+      return (Number.isInteger(r) ? r.toFixed(0) : r.toFixed(1)) + ' ' + u;
+    };
+    if (xScaleMode === 'years')  return fmt(d/365.25, 'yr');
+    if (xScaleMode === 'months') return fmt(d/30.44, 'mo');
+    return Math.round(d) + ' d';
   };
 
-  const xTickCount = 6;
-  const xTicks = Array.from({length: xTickCount+1}, (_,i) => i * maxDay / xTickCount);
+  // Build x-axis ticks that snap to round numbers in the chosen unit
+  const unitDays = xScaleMode === 'years' ? 365.25 : xScaleMode === 'months' ? 30.44 : 1;
+  const maxUnits = maxDay / unitDays;
+  // Pick a "nice" step so we get ~5–7 ticks
+  function niceStep(range, target) {
+    const raw = range / target;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const norm = raw / mag;
+    const step = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
+    return step * mag;
+  }
+  const stepUnits = niceStep(maxUnits, 6);
+  const xTicks = [];
+  for (let u = 0; u <= maxUnits + stepUnits * 0.001; u += stepUnits) {
+    xTicks.push(u * unitDays);
+  }
 
   // Voltage axis ticks
   const vTicks = [];
@@ -3629,13 +3669,19 @@ function ebDrawVoltageChart() {
     const pathPts = cr.pts.map((p,i) => `${i===0?'M':'L'}${xScale(p.day).toFixed(2)},${yScale(p.v).toFixed(2)}`).join(' ');
     out += `<path d="${pathPts}" fill="none" stroke="${cr.stroke}" stroke-width="${cr.width}" stroke-dasharray="${cr.dasharray}" opacity="${cr.opacity}" clip-path="url(#vchart-clip)" stroke-linejoin="round"/>`;
 
-    // EOL dot + lifetime label at end of each curve
+    // EOL marker + lifetime label at end of each curve
     const lastPt = cr.pts[cr.pts.length-1];
+    const isCal = cr.pts.endReason === 'calendar';
     const ex = xScale(lastPt.day), ey = yScale(lastPt.v);
     if (ex >= padL && ex <= W-padR && ey >= padT && ey <= padT+plotH) {
-      out += `<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="3.5" fill="${cr.stroke}" stroke="var(--bg)" stroke-width="1.5" opacity="${cr.opacity}"/>`;
-      const lifeLbl = fmtX(lastPt.day);
-      const anchor = ex > W - 90 ? 'end' : 'start';
+      if (isCal) {
+        // Calendar-limited: square marker (aged out before voltage cutoff)
+        out += `<rect x="${(ex-3.5).toFixed(1)}" y="${(ey-3.5).toFixed(1)}" width="7" height="7" fill="${cr.stroke}" stroke="var(--bg)" stroke-width="1.5" opacity="${cr.opacity}"/>`;
+      } else {
+        out += `<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="3.5" fill="${cr.stroke}" stroke="var(--bg)" stroke-width="1.5" opacity="${cr.opacity}"/>`;
+      }
+      const lifeLbl = fmtX(lastPt.day) + (isCal ? ' (aged out)' : '');
+      const anchor = ex > W - 110 ? 'end' : 'start';
       const dx = anchor === 'end' ? -7 : 7;
       out += `<text x="${(ex+dx).toFixed(1)}" y="${(ey-6).toFixed(1)}" fill="${cr.stroke}" font-size="8.5" text-anchor="${anchor}" font-family="IBM Plex Mono,monospace" opacity="${cr.opacity}">${lifeLbl}</text>`;
     }
@@ -3674,7 +3720,8 @@ function ebDrawVoltageChart() {
         : `background:${cr.stroke}`;
       const pts = cr.pts;
       const endDay = pts ? pts[pts.length-1].day : 0;
-      const life = fmtX(endDay);
+      const isCal = pts && pts.endReason === 'calendar';
+      const life = fmtX(endDay) + (isCal ? ' (aged out)' : '');
       return `<span style="display:flex;align-items:center;gap:5px;opacity:${cr.opacity}">
         <span style="display:inline-block;width:22px;height:2px;${style};border-radius:1px;vertical-align:middle"></span>
         <span>${cr.label} — <strong style="color:${cr.stroke}">${life}</strong></span>
@@ -3698,11 +3745,15 @@ function ebDrawVoltageChart() {
     const harvestNote = hasHarvest
       ? ` · Harvest: <strong style="color:var(--accent)">${harvest_J_day.toFixed(3)} J/day</strong> constant`
       : '';
+    const anyCal = validCurves.some(cr => cr.pts.endReason === 'calendar');
+    const calNote = anyCal
+      ? ` · <strong style="color:var(--warn)">Capped at ${ch.calendarLifeYears} yr calendar life</strong> (cell ages out before energy budget is exhausted)`
+      : '';
     const c0  = validCurves.find(cr => cr.margin === 0.00);
     const c40 = validCurves.find(cr => cr.margin === 0.40);
     const span0  = c0  ? `<strong style="color:${c0.stroke}">${fmtX(c0.pts[c0.pts.length-1].day)}</strong>` : '—';
     const span40 = c40 ? `<strong style="color:${c40.stroke}">${fmtX(c40.pts[c40.pts.length-1].day)}</strong>` : '—';
-    annEl.innerHTML = `Best case (0% margin): ${span0} &nbsp;·&nbsp; Design target (40% margin): ${span40} <span style="color:var(--accent);font-size:0.9em">← matches Estimated Battery Life above</span>` + lipoNote + cutoffNote + harvestNote;
+    annEl.innerHTML = `Best case (0% margin): ${span0} &nbsp;·&nbsp; Design target (40% margin): ${span40} <span style="color:var(--accent);font-size:0.9em">← matches Estimated Battery Life above</span>` + lipoNote + cutoffNote + calNote + harvestNote;
   }
 }
 
