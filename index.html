@@ -3485,45 +3485,40 @@ function ebDrawVoltageChart() {
   // Self-discharge is redistributed by the SoC-dependent multiplier (LiPo)
   // but its *integral over the lifetime* is conserved to match the energy budget,
   // so the 40% margin curve endpoint equals the banner lifetime exactly.
-  //
-  // selfDischMult is anchored at SoC=1.0 (= 1.0×, = datasheet peak rate).
-  // selfDischarge_J_day in the energy budget is the cycle-average rate.
-  // To recover the peak rate: sd_peak = sd_avg / cycleAvgMult
-  // where cycleAvgMult = ∫₀¹ mult(s) ds (numerically pre-computed for k=3.6):
-  //   ∫₀¹ exp(3.6(s-1)) ds = (1 - exp(-3.6))/3.6 ≈ 0.2465
-  const SD_CYCLE_AVG_MULT = (1 - Math.exp(-3.6)) / 3.6;  // ≈ 0.2465 for LiPo k=3.6
+  // SD_CYCLE_AVG_MULT: ∫₀¹ exp(3.6(s-1)) ds = (1-exp(-3.6))/3.6 ≈ 0.2465
+  // Used to recover the peak sd rate from the cycle-average stored in selfDischarge_J_day.
+  const SD_CYCLE_AVG_MULT = (1 - Math.exp(-3.6)) / 3.6;
   const sdCycleNorm = chemKey === 'lipo' ? SD_CYCLE_AVG_MULT : 1.0;
 
   function simulateCurve(marginFrac) {
     const netOut_J_day = totalOut_J_day * (1 + marginFrac) - harvest_J_day;
     if (netOut_J_day <= 0) return null;
 
-    const simLife = capJ / netOut_J_day;
-    const endDays = Math.min(simLife, 3650);
+    const simLife  = capJ / netOut_J_day;            // matches banner lifetime exactly
+    const endDays  = Math.min(simLife, 3650);
     if (endDays < 1) return null;
 
     const stepDays = Math.max(0.5, endDays / 400);
 
-    // sd_peak_J_day: peak self-discharge rate at SoC=1.0 (datasheet condition).
-    // Dividing by sdCycleNorm converts from cycle-average back to peak so that
-    // when the multiplier is applied step-by-step, the integrated total matches
-    // selfDischarge_J_day (the energy budget figure).
-    const sd_peak_J_day  = selfDischarge_J_day / sdCycleNorm;
-    const activeNet_J_day = netOut_J_day - selfDischarge_J_day;
+    // Split netOut into sd portion (SoC-redistributed) and active portion (constant).
+    // sd_peak is normalised so that ∫ sd_peak·mult(soc) dt == selfDischarge_J_day·simLife.
+    // active_J_day carries the remainder, keeping the total drain == netOut_J_day.
+    const sd_avg_J_day  = selfDischarge_J_day;
+    const sd_peak_J_day = sd_avg_J_day / sdCycleNorm;   // peak rate at SoC=1
+    const active_J_day  = netOut_J_day - sd_avg_J_day;  // constant load + margin - avg sd
 
     const pts = [];
     let soc = 1.0, day = 0;
-    const vCutoff = Math.max(c.vovdis, ch.vCutoff);  // stop at system cutoff (VOVDIS); cell PCM is backstop
+    const vCutoff = Math.max(c.vovdis, ch.vCutoff);
 
-    while (day <= endDays + stepDays) {
+    while (day <= simLife + stepDays) {
       const v = socToVoltage(soc, chemKey);
       pts.push({ day, soc, v });
-      if (soc <= 0.001 || v <= vCutoff) break;
+      if (v <= vCutoff || soc <= 0.001) break;
 
-      // SoC-dependent self-discharge: mult(1.0)=1.0× (peak), decreasing as SoC falls
       const sdMult  = ch.selfDischMult(soc);
       const sdFrac  = (sd_peak_J_day * sdMult * stepDays) / capJ;
-      const actFrac = (activeNet_J_day * stepDays) / capJ;
+      const actFrac = (active_J_day           * stepDays) / capJ;
 
       soc = Math.max(0, soc - sdFrac - actFrac);
       day += stepDays;
