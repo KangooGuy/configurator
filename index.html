@@ -1204,6 +1204,19 @@
         <div id="eb_voltage_annotations" style="margin-top:8px;font-size:0.76rem;color:var(--muted);line-height:1.8"></div>
       </div>
 
+      <!-- Lifetime totals table -->
+      <div class="card" id="eb_lifetime_totals_card">
+        <h2 style="margin-bottom:3px">📊 Lifetime Activity Totals</h2>
+        <div class="card-sub" style="margin-bottom:12px">Cumulative device activity over the full battery lifetime, for each safety-margin scenario. Higher margin → shorter lifetime → fewer total events.</div>
+        <div style="overflow-x:auto">
+          <table id="eb_lifetime_totals_table" style="width:100%;border-collapse:collapse;font-size:0.82rem">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="eb_lifetime_totals_note" style="margin-top:10px;font-size:0.73rem;color:var(--muted);line-height:1.7"></div>
+      </div>
+
       <!-- Energy donut -->
       <div class="card" style="padding:14px 18px">
         <div style="display:flex;flex-direction:row;gap:20px;align-items:flex-start">
@@ -3754,6 +3767,109 @@ function ebDrawVoltageChart() {
     const span0  = c0  ? `<strong style="color:${c0.stroke}">${fmtX(c0.pts[c0.pts.length-1].day)}</strong>` : '—';
     const span40 = c40 ? `<strong style="color:${c40.stroke}">${fmtX(c40.pts[c40.pts.length-1].day)}</strong>` : '—';
     annEl.innerHTML = `Best case (0% margin): ${span0} &nbsp;·&nbsp; Design target (40% margin): ${span40} <span style="color:var(--accent);font-size:0.9em">← matches Estimated Battery Life above</span>` + lipoNote + cutoffNote + calNote + harvestNote;
+  }
+
+  // Draw the lifetime activity totals table using the same lifetime figures
+  ebDrawLifetimeTotals(validCurves);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Lifetime Activity Totals table
+// ══════════════════════════════════════════════════════════════════════════════
+function ebDrawLifetimeTotals(validCurves) {
+  const table = document.getElementById('eb_lifetime_totals_table');
+  const noteEl = document.getElementById('eb_lifetime_totals_note');
+  if (!table) return;
+  const exp = window._ebExportData;
+  if (!exp || !validCurves || !validCurves.length) {
+    table.querySelector('thead').innerHTML = '';
+    table.querySelector('tbody').innerHTML = '<tr><td style="padding:10px;color:var(--muted)">Run the calculator to see totals.</td></tr>';
+    if (noteEl) noteEl.innerHTML = '';
+    return;
+  }
+
+  // Per-day activity rates from the energy budget
+  const c = exp.c;
+  const rates = [
+    { key: 'life',  label: 'Battery lifetime',          perDay: null,                  unit: '',         icon: '⏳' },
+    { key: 'msgs',  label: 'LoRa messages (total UL)',  perDay: exp.total_msgs_day,    unit: 'msgs',     icon: '📡' },
+    { key: 'tx',    label: '— actual transmissions',    perDay: exp.actual_tx_day,     unit: 'tx',       icon: '↑',  sub: true },
+    { key: 'hb',    label: '— heartbeats',              perDay: exp.hb_per_day,        unit: 'hb',       icon: '♥',  sub: true },
+    { key: 'gnss',  label: 'GNSS fixes',                perDay: exp.gnss_fixes_day,    unit: 'fixes',    icon: '🛰️', enabled: c.gnss_enabled },
+    { key: 'wifi',  label: 'Wi-Fi scans',              perDay: exp.wifi_scans_day,    unit: 'scans',    icon: '📶', enabled: c.wifi_enabled },
+    { key: 'ble',   label: 'BLE scans',                 perDay: exp.ble_scans_day,     unit: 'scans',    icon: '🔵', enabled: c.ble_enabled },
+    { key: 'pos',   label: 'Position events',           perDay: exp.pos_events_day,    unit: 'events',   icon: '📍' },
+  ];
+
+  // Map margin → lifetime days from the already-simulated curves
+  const lifeByMargin = {};
+  for (const cr of validCurves) lifeByMargin[cr.margin] = { days: cr.pts[cr.pts.length-1].day, cal: cr.pts.endReason === 'calendar' };
+
+  const margins = [0.00, 0.20, 0.40];
+  const marginColors = { 0.00: '#3a9fff', 0.20: '#f5a623', 0.40: '#00DDB3' };
+
+  function fmtNum(n) {
+    if (n == null || !isFinite(n)) return '—';
+    if (n >= 1e9) return (n/1e9).toFixed(2) + ' B';
+    if (n >= 1e6) return (n/1e6).toFixed(2) + ' M';
+    if (n >= 1e3) return (n/1e3).toFixed(1) + ' k';
+    if (n >= 10)  return Math.round(n).toLocaleString();
+    return n.toFixed(1);
+  }
+  function fmtLifeDays(d) {
+    if (d == null || !isFinite(d)) return '—';
+    const yr = d / 365.25;
+    if (yr >= 1) {
+      const y = Math.floor(yr);
+      const mo = Math.round((yr - y) * 12);
+      return mo > 0 ? `${y} yr ${mo} mo` : `${y} yr`;
+    }
+    const mo = d / 30.44;
+    if (mo >= 1) return `${mo.toFixed(1)} mo`;
+    return `${Math.round(d)} d`;
+  }
+
+  // Header
+  const isDefault = m => Math.abs(m - (c.design_margin ?? 0.40)) < 0.001;
+  let thead = '<tr style="border-bottom:2px solid var(--border-hi)">';
+  thead += '<th style="text-align:left;padding:8px 10px;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted)">Metric</th>';
+  for (const m of margins) {
+    const def = isDefault(m);
+    thead += `<th style="text-align:right;padding:8px 10px;font-size:0.78rem;color:${marginColors[m]};white-space:nowrap">
+      ${(m*100).toFixed(0)}% margin${def ? ' <span style="font-size:0.62rem;background:var(--accent);color:var(--bg);padding:1px 5px;border-radius:4px;vertical-align:middle">DEFAULT</span>' : ''}
+    </th>`;
+  }
+  thead += '</tr>';
+  table.querySelector('thead').innerHTML = thead;
+
+  // Body
+  let tbody = '';
+  for (const r of rates) {
+    if (r.enabled === false) continue;
+    const subStyle = r.sub ? 'color:var(--muted);padding-left:22px;font-size:0.78rem' : 'color:var(--text)';
+    tbody += `<tr style="border-bottom:1px solid var(--border)">`;
+    tbody += `<td style="text-align:left;padding:7px 10px;${subStyle}">${r.icon ? r.icon + ' ' : ''}${r.label}</td>`;
+    for (const m of margins) {
+      const lt = lifeByMargin[m];
+      const def = isDefault(m);
+      const cellBg = def ? 'background:rgba(0,221,179,0.06)' : '';
+      if (r.key === 'life') {
+        const lifeStr = lt ? fmtLifeDays(lt.days) + (lt.cal ? ' *' : '') : '—';
+        tbody += `<td style="text-align:right;padding:7px 10px;font-family:var(--mono);font-weight:700;color:${marginColors[m]};${cellBg}">${lifeStr}</td>`;
+      } else {
+        const total = lt ? r.perDay * lt.days : null;
+        tbody += `<td style="text-align:right;padding:7px 10px;font-family:var(--mono);color:var(--text);${cellBg}">${fmtNum(total)} <span style="color:var(--muted);font-size:0.72rem">${r.unit}</span></td>`;
+      }
+    }
+    tbody += '</tr>';
+  }
+  table.querySelector('tbody').innerHTML = tbody;
+
+  // Note
+  if (noteEl) {
+    const anyCal = margins.some(m => lifeByMargin[m]?.cal);
+    const perDayNote = `Per-day rates: ${fmtNum(exp.total_msgs_day)} msgs, ${c.gnss_enabled ? fmtNum(exp.gnss_fixes_day)+' GNSS, ' : ''}${c.wifi_enabled ? fmtNum(exp.wifi_scans_day)+' Wi-Fi, ' : ''}${c.ble_enabled ? fmtNum(exp.ble_scans_day)+' BLE, ' : ''}${fmtNum(exp.pos_events_day)} position events.`;
+    noteEl.innerHTML = perDayNote + (anyCal ? ' &nbsp; <span style="color:var(--warn)">* lifetime capped by calendar aging, not energy budget.</span>' : '');
   }
 }
 
