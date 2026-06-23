@@ -4111,9 +4111,13 @@ function ebOnDeviceChange() {
   const wifiEnEl = eb('wifi_en');
   if (wifiEnEl) wifiEnEl.checked = !!dev.wifi;
 
-  // Per-device defaults for indoor ratio and harvesting
-  const indoorEl = eb('indoor_pct');
-  if (indoorEl) indoorEl.value = dev.defIndoorPct !== undefined ? dev.defIndoorPct : 20;
+  // Per-device defaults for harvesting (indoor ratio is a usage/environmental
+  // parameter, not a device property, so it is NOT reset on device change —
+  // doing so previously clobbered the user's value back to 20%).
+  if (dev.defIndoorPct !== undefined) {
+    const indoorEl = eb('indoor_pct');
+    if (indoorEl) indoorEl.value = dev.defIndoorPct;  // only set when device explicitly defines one
+  }
   const harvestEnEl = eb('harvest_en');
   if (harvestEnEl) harvestEnEl.checked = !!dev.defHarvest;
 
