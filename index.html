@@ -1662,8 +1662,31 @@ function slUpd16(el,hid) { document.getElementById(hid).value = sl_h4(parseInt(e
 function slUpd32(el,hid) { document.getElementById(hid).value = sl_h8(parseInt(el.value||'0',10)); }
 function slUpdI8(el,hid) { let v=parseInt(el.value||'0',10); document.getElementById(hid).value=sl_h2(v<0?256+v:v); }
 function slUpdFilter()   {
-  const raw=(document.getElementById('sl_p134_filter').value+'          ').slice(0,10);
-  document.getElementById('sl_p134_filterH').value=Array.from(raw).map(c=>sl_h2(c.charCodeAt(0))).join('');
+  const mode = parseInt(document.getElementById('sl_p134_mode')?.value||'0',10);
+  const filterEl = document.getElementById('sl_p134_filter');
+  const filterHEl = document.getElementById('sl_p134_filterH');
+  if (!filterEl || !filterHEl) return;
+  if (mode === 3 || mode === 4) {
+    // MAC filter mode: input is hex string (up to 12 hex chars = 6 bytes)
+    // Byte 5 of payload = byte count, bytes 6–11 = MAC bytes, rest padded with 0x00
+    const hexStr = filterEl.value.replace(/[^0-9a-fA-F]/g,'').slice(0,12);
+    const macBytes = [];
+    for (let i=0; i<hexStr.length; i+=2) macBytes.push(parseInt(hexStr.slice(i,i+2),16)||0);
+    const byteCount = Math.min(macBytes.length, 6);
+    // Pad to 10 bytes: [byteCount, mac[0..byteCount-1], 0x00 * (9-byteCount)]
+    const filterBytes = [byteCount, ...macBytes.slice(0,6)];
+    while (filterBytes.length < 10) filterBytes.push(0x00);
+    filterHEl.value = filterBytes.map(sl_h2).join('');
+    // Update placeholder to guide user
+    filterEl.placeholder = 'AABBCCDDEEFF (hex, LSB first)';
+    filterEl.maxLength = 12;
+  } else {
+    // Name / namespace mode: 10 ASCII bytes
+    const raw=(filterEl.value+'          ').slice(0,10);
+    filterHEl.value=Array.from(raw).map(c=>sl_h2(c.charCodeAt(0))).join('');
+    filterEl.placeholder = 'name or namespace (10 chars)';
+    filterEl.maxLength = 10;
+  }
 }
 
 /* ── Port definitions ── */
@@ -1790,13 +1813,13 @@ const SL_PORTS = [
     form(){ return `<table class="cfg-table"><thead><tr><th>Field</th><th>Decimal</th><th>Hex</th></tr></thead><tbody>
       <tr><td>Scan interval (s) [uint16 BE]</td><td><input type="number" id="sl_p134_scanInt" min="0" max="65535" value="7200" oninput="slUpd16(this,'sl_p134_scanIntH')"></td><td><input type="text" id="sl_p134_scanIntH" readonly></td></tr>
       <tr><td>Scan time (s, 0–180) [uint8]</td><td><input type="number" id="sl_p134_scanTime" min="0" max="180" value="5" oninput="slUpd8(this,'sl_p134_scanTimeH')"></td><td><input type="text" id="sl_p134_scanTimeH" readonly></td></tr>
-      <tr><td>Max beacons [uint8]</td><td><input type="number" id="sl_p134_maxBeac" min="0" max="255" value="6" oninput="slUpd8(this,'sl_p134_maxBeacH')"></td><td><input type="text" id="sl_p134_maxBeacH" readonly></td></tr>
-      <tr><td>Min. RSSI [int8]</td><td><input type="number" id="sl_p134_minRssi" min="-128" max="127" value="0" oninput="slUpdI8(this,'sl_p134_minRssiH')"></td><td><input type="text" id="sl_p134_minRssiH" readonly></td></tr>
-      <tr><td>Filter — namespace/name (10 ASCII) [10×uint8]</td><td><input type="text" id="sl_p134_filter" maxlength="10" value="truvami001" oninput="slUpdFilter()" style="font-family:var(--mono)"></td><td><input type="text" id="sl_p134_filterH" readonly></td></tr>
+      <tr><td>Max beacons [uint8, 1–30]</td><td><input type="number" id="sl_p134_maxBeac" min="1" max="30" value="6" oninput="slUpd8(this,'sl_p134_maxBeacH')"></td><td><input type="text" id="sl_p134_maxBeacH" readonly></td></tr>
+      <tr><td>Min. RSSI [int8, -127 to -5 dBm]</td><td><input type="number" id="sl_p134_minRssi" min="-127" max="-5" value="-100" oninput="slUpdI8(this,'sl_p134_minRssiH')"></td><td><input type="text" id="sl_p134_minRssiH" readonly></td></tr>
+      <tr><td>Filter — name/namespace (10 ASCII) or MAC bytes (hex: AABBCCDDEEFF, up to 6 bytes) [10×uint8]</td><td><input type="text" id="sl_p134_filter" maxlength="12" value="truvami001" oninput="slUpdFilter()" style="font-family:var(--mono)" placeholder="name or AABBCCDDEEFF"></td><td><input type="text" id="sl_p134_filterH" readonly></td></tr>
       <tr><td>Acc. hold timer (s) [uint16 BE]</td><td><input type="number" id="sl_p134_holdTimer" min="0" max="65535" value="1" oninput="slUpd16(this,'sl_p134_holdTimerH')"></td><td><input type="text" id="sl_p134_holdTimerH" readonly></td></tr>
       <tr><td>Acc. threshold (mg) [uint16 BE]</td><td><input type="number" id="sl_p134_accThr" min="0" max="65535" value="30" oninput="slUpd16(this,'sl_p134_accThrH')"></td><td><input type="text" id="sl_p134_accThrH" readonly></td></tr>
-      <tr><td>Scan mode (0=none, 1=name, 2=namespace) [uint8]</td><td><input type="number" id="sl_p134_mode" min="0" max="2" value="2" oninput="slUpd8(this,'sl_p134_modeH')"></td><td><input type="text" id="sl_p134_modeH" readonly></td></tr>
-      <tr><td>BLE uplink interval (s) [uint16 BE]</td><td><input type="number" id="sl_p134_uplinkInt" min="0" max="65535" value="21600" oninput="slUpd16(this,'sl_p134_uplinkIntH')"></td><td><input type="text" id="sl_p134_uplinkIntH" readonly></td></tr>
+      <tr><td>Scan mode (0=no filter · 1=name · 2=Eddystone namespace · 3=MAC filter · 4=MAC reverse filter) [uint8]</td><td><input type="number" id="sl_p134_mode" min="0" max="4" value="2" oninput="slUpd8(this,'sl_p134_modeH');slUpdFilter()"></td><td><input type="text" id="sl_p134_modeH" readonly></td></tr>
+      <tr><td>BLE uplink interval (s, min 301, 0=disable) [uint16 BE]</td><td><input type="number" id="sl_p134_uplinkInt" min="0" max="65535" value="21600" oninput="slUpd16(this,'sl_p134_uplinkIntH')"></td><td><input type="text" id="sl_p134_uplinkIntH" readonly></td></tr>
     </tbody></table>`; },
     initHex(){
       const ids=[['sl_p134_scanInt',16],['sl_p134_scanTime',8],['sl_p134_maxBeac',8],['sl_p134_mode',8],['sl_p134_holdTimer',16],['sl_p134_accThr',16],['sl_p134_uplinkInt',16]];
@@ -1806,9 +1829,21 @@ const SL_PORTS = [
     },
     generate(){
       const g=id=>slg(id); const be16=v=>[(v>>8)&0xFF,v&0xFF]; const i8v=v=>v<0?256+v:v;
-      const filterStr=(document.getElementById('sl_p134_filter').value+'          ').slice(0,10);
-      const filterBytes=Array.from(filterStr).map(c=>c.charCodeAt(0)&0xFF);
-      const bytes=[...be16(g('sl_p134_scanInt')),g('sl_p134_scanTime')&0xFF,g('sl_p134_maxBeac')&0xFF,i8v(g('sl_p134_minRssi'))&0xFF,...filterBytes,...be16(g('sl_p134_holdTimer')),...be16(g('sl_p134_accThr')),g('sl_p134_mode')&0xFF,...be16(g('sl_p134_uplinkInt'))];
+      const mode = g('sl_p134_mode');
+      let filterBytes;
+      if (mode === 3 || mode === 4) {
+        // MAC filter: encode as [byteCount, mac bytes..., padding]
+        const hexStr = (document.getElementById('sl_p134_filter').value||'').replace(/[^0-9a-fA-F]/g,'').slice(0,12);
+        const macBytes = [];
+        for (let i=0; i<hexStr.length; i+=2) macBytes.push(parseInt(hexStr.slice(i,i+2),16)||0);
+        const byteCount = Math.min(macBytes.length, 6);
+        filterBytes = [byteCount, ...macBytes.slice(0,6)];
+        while (filterBytes.length < 10) filterBytes.push(0x00);
+      } else {
+        const filterStr=(document.getElementById('sl_p134_filter').value+'          ').slice(0,10);
+        filterBytes=Array.from(filterStr).map(c=>c.charCodeAt(0)&0xFF);
+      }
+      const bytes=[...be16(g('sl_p134_scanInt')),g('sl_p134_scanTime')&0xFF,g('sl_p134_maxBeac')&0xFF,i8v(g('sl_p134_minRssi'))&0xFF,...filterBytes,...be16(g('sl_p134_holdTimer')),...be16(g('sl_p134_accThr')),mode&0xFF,...be16(g('sl_p134_uplinkInt'))];
       return bytes.map(sl_h2).join('');
     },
     decode(bs){
@@ -1816,22 +1851,31 @@ const SL_PORTS = [
       const h=(s,e)=>parseInt(bs.slice(s,e),16);
       sls('sl_p134_scanInt',h(0,4)); sls('sl_p134_scanTime',h(4,6)); sls('sl_p134_maxBeac',h(6,8));
       const rssiRaw=h(8,10); sls('sl_p134_minRssi',rssiRaw>127?rssiRaw-256:rssiRaw);
-      sls('sl_p134_filter',(bs.slice(10,30).match(/.{2}/g)||[]).map(hh=>String.fromCharCode(parseInt(hh,16))).join('').replace(/\x00+$/,''));
-      sls('sl_p134_holdTimer',h(30,34)); sls('sl_p134_accThr',h(34,38)); sls('sl_p134_mode',h(38,40)); sls('sl_p134_uplinkInt',h(40,44));
+      const mode=h(38,40); sls('sl_p134_mode',mode);
+      if (mode===3||mode===4) {
+        // MAC mode: byte 0 of filter = count, bytes 1..count = MAC bytes
+        const filterHex = bs.slice(10,30); // 20 hex chars = 10 bytes
+        const byteCount = h(10,12); // first byte = count
+        const macHex = bs.slice(12, 12+Math.min(byteCount,6)*2);
+        sls('sl_p134_filter', macHex.toUpperCase());
+      } else {
+        sls('sl_p134_filter',(bs.slice(10,30).match(/.{2}/g)||[]).map(hh=>String.fromCharCode(parseInt(hh,16))).join('').replace(/\x00+$/,''));
+      }
+      sls('sl_p134_holdTimer',h(30,34)); sls('sl_p134_accThr',h(34,38)); sls('sl_p134_uplinkInt',h(40,44));
       this.initHex();
     },
-    layout:`<table class="ref-table"><thead><tr><th>Bytes</th><th>Field</th><th>Type</th></tr></thead><tbody>
-      <tr><td>0–1</td><td>Scan interval</td><td>uint16 BE</td></tr>
-      <tr><td>2</td><td>Scan time</td><td>uint8 (s)</td></tr>
-      <tr><td>3</td><td>Max beacons</td><td>uint8</td></tr>
-      <tr><td>4</td><td>Min. RSSI</td><td>int8 (dBm)</td></tr>
-      <tr><td>5–14</td><td>Filter (name/namespace)</td><td>10 × ASCII</td></tr>
-      <tr><td>15–16</td><td>Acc. hold timer</td><td>uint16 BE</td></tr>
-      <tr><td>17–18</td><td>Acc. threshold</td><td>uint16 BE</td></tr>
-      <tr><td>19</td><td>Scan mode</td><td>uint8</td></tr>
-      <tr><td>20–21</td><td>BLE uplink interval</td><td>uint16 BE</td></tr>
+    layout:`<table class="ref-table"><thead><tr><th>Bytes</th><th>Field</th><th>Type / Notes</th></tr></thead><tbody>
+      <tr><td>0–1</td><td>Scan interval</td><td>uint16 BE (s)</td></tr>
+      <tr><td>2</td><td>Scan time</td><td>uint8 (s, 0–180)</td></tr>
+      <tr><td>3</td><td>Max beacons</td><td>uint8 (1–30)</td></tr>
+      <tr><td>4</td><td>Min. RSSI</td><td>int8 (dBm, −27 to −5 accepted)</td></tr>
+      <tr><td>5–14</td><td>Filter (name/namespace/MAC)</td><td>10 × uint8 — for MAC modes: byte 5 = MAC byte count (1–6), bytes 6–11 = MAC bytes little-endian</td></tr>
+      <tr><td>15–16</td><td>Acc. hold timer</td><td>uint16 BE (s)</td></tr>
+      <tr><td>17–18</td><td>Acc. threshold</td><td>uint16 BE (mg)</td></tr>
+      <tr><td>19</td><td>Scan mode</td><td>uint8: 0=no filter · 1=advertised name · 2=Eddystone namespace · 3=MAC filter · 4=MAC reverse filter</td></tr>
+      <tr><td>20–21</td><td>BLE uplink interval</td><td>uint16 BE (s, must be &gt;300 to take effect; 0=no change)</td></tr>
     </tbody></table>`,
-    hint:'<div class="div"></div><div class="hint-box"><strong>Scan mode:</strong> 0 = no filter · 1 = name filter · 2 = Eddystone namespace filter</div>' },
+    hint:'<div class="hint-box"><strong>Scan mode values:</strong> 0 = no filter · 1 = advertised name filter · 2 = Eddystone namespace filter · 3 = MAC filter (allow-list: device MAC must match) · 4 = MAC reverse filter (deny-list: device MAC must <em>not</em> match).<br><strong>MAC filter encoding (modes 3 &amp; 4):</strong> bytes 5–14 of the payload carry the MAC filter — byte 5 = number of MAC bytes to compare (1–6), bytes 6–11 = MAC in little-endian order (LSB first, as reported by the BLE stack). Example: to match AA:BB:CC:DD:EE:FF enter <code>06FFEEDDCCBBAA</code> (padded to 10 bytes).</div>' },
 
   /* ---- PORT 135 ---- */
   { id:'p135', port:135, label:'Port 135 — BLE Scan On-Demand',
