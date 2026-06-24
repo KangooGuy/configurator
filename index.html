@@ -1667,19 +1667,27 @@ function slUpdFilter()   {
   const filterHEl = document.getElementById('sl_p134_filterH');
   if (!filterEl || !filterHEl) return;
   if (mode === 3 || mode === 4) {
-    // MAC filter mode: input is hex string (up to 12 hex chars = 6 bytes)
-    // Byte 5 of payload = byte count, bytes 6–11 = MAC bytes, rest padded with 0x00
+    // Input: MAC as shown in nRF Connect / SiConnect — big-endian display, e.g. AA:BB:CC:DD:EE:FF
+    // Strip separators, take up to 6 bytes (12 hex chars)
     const hexStr = filterEl.value.replace(/[^0-9a-fA-F]/g,'').slice(0,12);
     const macBytes = [];
     for (let i=0; i<hexStr.length; i+=2) macBytes.push(parseInt(hexStr.slice(i,i+2),16)||0);
     const byteCount = Math.min(macBytes.length, 6);
-    // Pad to 10 bytes: [byteCount, mac[0..byteCount-1], 0x00 * (9-byteCount)]
-    const filterBytes = [byteCount, ...macBytes.slice(0,6)];
+    let filterBytes;
+    if (mode === 3) {
+      // Mode 3: memcmp against addr[0..len-1] — Silicon Labs addr[] is little-endian (LSB first)
+      // so we must reverse the display-order input bytes before storing
+      const reversed = macBytes.slice(0, byteCount).reverse();
+      filterBytes = [byteCount, ...reversed];
+    } else {
+      // Mode 4: firmware reverses internally (addr[mac_size-1-j] vs filter[j])
+      // so store bytes in the same big-endian order as the display input — no reversal needed
+      filterBytes = [byteCount, ...macBytes.slice(0, byteCount)];
+    }
     while (filterBytes.length < 10) filterBytes.push(0x00);
     filterHEl.value = filterBytes.map(sl_h2).join('');
-    // Update placeholder to guide user
-    filterEl.placeholder = 'AABBCCDDEEFF (hex, LSB first)';
-    filterEl.maxLength = 12;
+    filterEl.placeholder = 'AA:BB:CC:DD:EE:FF';
+    filterEl.maxLength = 17; // allow colons
   } else {
     // Name / namespace mode: 10 ASCII bytes
     const raw=(filterEl.value+'          ').slice(0,10);
@@ -1832,12 +1840,19 @@ const SL_PORTS = [
       const mode = g('sl_p134_mode');
       let filterBytes;
       if (mode === 3 || mode === 4) {
-        // MAC filter: encode as [byteCount, mac bytes..., padding]
+        // Input is nRF Connect / SiConnect display format (big-endian, AA:BB:CC:DD:EE:FF)
         const hexStr = (document.getElementById('sl_p134_filter').value||'').replace(/[^0-9a-fA-F]/g,'').slice(0,12);
         const macBytes = [];
         for (let i=0; i<hexStr.length; i+=2) macBytes.push(parseInt(hexStr.slice(i,i+2),16)||0);
         const byteCount = Math.min(macBytes.length, 6);
-        filterBytes = [byteCount, ...macBytes.slice(0,6)];
+        if (mode === 3) {
+          // Reverse to little-endian for memcmp against Silicon Labs addr[]
+          const reversed = macBytes.slice(0, byteCount).reverse();
+          filterBytes = [byteCount, ...reversed];
+        } else {
+          // Mode 4: firmware reverses on comparison, so store as-is (big-endian)
+          filterBytes = [byteCount, ...macBytes.slice(0, byteCount)];
+        }
         while (filterBytes.length < 10) filterBytes.push(0x00);
       } else {
         const filterStr=(document.getElementById('sl_p134_filter').value+'          ').slice(0,10);
@@ -1853,11 +1868,18 @@ const SL_PORTS = [
       const rssiRaw=h(8,10); sls('sl_p134_minRssi',rssiRaw>127?rssiRaw-256:rssiRaw);
       const mode=h(38,40); sls('sl_p134_mode',mode);
       if (mode===3||mode===4) {
-        // MAC mode: byte 0 of filter = count, bytes 1..count = MAC bytes
-        const filterHex = bs.slice(10,30); // 20 hex chars = 10 bytes
-        const byteCount = h(10,12); // first byte = count
-        const macHex = bs.slice(12, 12+Math.min(byteCount,6)*2);
-        sls('sl_p134_filter', macHex.toUpperCase());
+        // MAC filter: byte 10-11 = byteCount, bytes 12..12+byteCount*2 = stored MAC bytes
+        const byteCount = Math.min(h(10,12), 6);
+        const storedBytes = (bs.slice(12, 12+byteCount*2).match(/.{2}/g)||[]).map(hh=>parseInt(hh,16));
+        let displayBytes;
+        if (mode===3) {
+          // Was stored reversed (little-endian); reverse back to display order
+          displayBytes = storedBytes.slice().reverse();
+        } else {
+          // Mode 4: stored in big-endian display order already
+          displayBytes = storedBytes;
+        }
+        sls('sl_p134_filter', displayBytes.map(b=>b.toString(16).toUpperCase().padStart(2,'0')).join(':'));
       } else {
         sls('sl_p134_filter',(bs.slice(10,30).match(/.{2}/g)||[]).map(hh=>String.fromCharCode(parseInt(hh,16))).join('').replace(/\x00+$/,''));
       }
@@ -1869,13 +1891,13 @@ const SL_PORTS = [
       <tr><td>2</td><td>Scan time</td><td>uint8 (s, 0–180)</td></tr>
       <tr><td>3</td><td>Max beacons</td><td>uint8 (1–30)</td></tr>
       <tr><td>4</td><td>Min. RSSI</td><td>int8 (dBm, −27 to −5 accepted)</td></tr>
-      <tr><td>5–14</td><td>Filter (name/namespace/MAC)</td><td>10 × uint8 — for MAC modes: byte 5 = MAC byte count (1–6), bytes 6–11 = MAC bytes little-endian</td></tr>
+      <tr><td>5–14</td><td>Filter (name/namespace/MAC)</td><td>10 × uint8 — for MAC modes: byte 5 = MAC byte count (1–6), bytes 6–11 = MAC bytes (mode 3: little-endian/reversed; mode 4: big-endian/display order)</td></tr>
       <tr><td>15–16</td><td>Acc. hold timer</td><td>uint16 BE (s)</td></tr>
       <tr><td>17–18</td><td>Acc. threshold</td><td>uint16 BE (mg)</td></tr>
       <tr><td>19</td><td>Scan mode</td><td>uint8: 0=no filter · 1=advertised name · 2=Eddystone namespace · 3=MAC filter · 4=MAC reverse filter</td></tr>
       <tr><td>20–21</td><td>BLE uplink interval</td><td>uint16 BE (s, must be &gt;300 to take effect; 0=no change)</td></tr>
     </tbody></table>`,
-    hint:'<div class="hint-box"><strong>Scan mode values:</strong> 0 = no filter · 1 = advertised name filter · 2 = Eddystone namespace filter · 3 = MAC filter (allow-list: device MAC must match) · 4 = MAC reverse filter (deny-list: device MAC must <em>not</em> match).<br><strong>MAC filter encoding (modes 3 &amp; 4):</strong> bytes 5–14 of the payload carry the MAC filter — byte 5 = number of MAC bytes to compare (1–6), bytes 6–11 = MAC in little-endian order (LSB first, as reported by the BLE stack). Example: to match AA:BB:CC:DD:EE:FF enter <code>06FFEEDDCCBBAA</code> (padded to 10 bytes).</div>' },
+    hint:'<div class="hint-box"><strong>Scan mode values:</strong> 0 = no filter · 1 = advertised name filter · 2 = Eddystone namespace filter · 3 = MAC allow-list (pass if MAC matches) · 4 = MAC deny-list (pass if MAC does <em>not</em> match).<br><strong>MAC input (modes 3 &amp; 4):</strong> enter the MAC exactly as shown in nRF Connect or SiConnect, e.g. <code>AA:BB:CC:DD:EE:FF</code> (colons optional, 1–6 bytes). The tool handles the byte-order conversion automatically — mode 3 reverses to little-endian for the Silicon Labs <code>addr[]</code> comparison; mode 4 stores as-is since the firmware reverses internally.</div>' },
 
   /* ---- PORT 135 ---- */
   { id:'p135', port:135, label:'Port 135 — BLE Scan On-Demand',
